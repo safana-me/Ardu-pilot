@@ -451,10 +451,10 @@ void AP_RunCam::handle_in_menu(Event ev)
 // map rc input to an event
 AP_RunCam::Event AP_RunCam::map_rc_input_to_event() const
 {
-    const RC_Channel::AuxSwitchPos throttle = rc().get_throttle_channel().get_aux_switch_pos();
-    const RC_Channel::AuxSwitchPos yaw = rc().get_yaw_channel().get_aux_switch_pos();
-    const RC_Channel::AuxSwitchPos roll = rc().get_roll_channel().get_aux_switch_pos();
-    const RC_Channel::AuxSwitchPos pitch = rc().get_pitch_channel().get_aux_switch_pos();
+    const RC_Channel::AuxSwitchPos throttle = rc().get_channel_pos(RC_Channel::AUX_FUNC::THROTTLE);
+    const RC_Channel::AuxSwitchPos yaw = rc().get_channel_pos(RC_Channel::AUX_FUNC::YAW);
+    const RC_Channel::AuxSwitchPos roll = rc().get_channel_pos(RC_Channel::AUX_FUNC::ROLL);
+    const RC_Channel::AuxSwitchPos pitch = rc().get_channel_pos(RC_Channel::AUX_FUNC::PITCH);
 
     Event result = Event::NONE;
 
