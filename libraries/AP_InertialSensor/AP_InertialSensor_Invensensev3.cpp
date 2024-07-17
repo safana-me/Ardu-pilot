@@ -343,8 +343,8 @@ void AP_InertialSensor_Invensensev3::start()
     // pre-calculate backend period
     backend_period_us = 1000000UL / backend_rate_hz;
 
-    if (!_imu.register_gyro(gyro_instance, backend_rate_hz, dev->get_bus_id_devtype(devtype)) ||
-        !_imu.register_accel(accel_instance, backend_rate_hz, dev->get_bus_id_devtype(devtype))) {
+    if (!_imu.register_gyro(gyro_instance, sampling_rate_hz, dev->get_bus_id_devtype(devtype)) ||
+        !_imu.register_accel(accel_instance, sampling_rate_hz, dev->get_bus_id_devtype(devtype))) {
         return;
     }
 
@@ -669,21 +669,21 @@ void AP_InertialSensor_Invensensev3::register_write_bank(uint8_t bank, uint8_t r
 }
 
 // calculate the fast sampling backend rate
-uint16_t AP_InertialSensor_Invensensev3::calculate_fast_sampling_backend_rate(uint16_t base_odr, uint16_t max_odr) const
+uint16_t AP_InertialSensor_Invensensev3::calculate_fast_sampling_backend_rate(uint16_t base_backend_rate, uint16_t max_backend_rate) const
 {
     // constrain the gyro rate to be at least the loop rate
-    uint8_t loop_limit = 1;
-    if (get_loop_rate_hz() > base_odr) {
-        loop_limit = 2;
+    uint8_t min_base_rate_multiplier = 1;
+    if (get_loop_rate_hz() > base_backend_rate) {
+        min_base_rate_multiplier = 2;
     }
-    if (get_loop_rate_hz() > base_odr * 2) {
-        loop_limit = 4;
+    if (get_loop_rate_hz() > base_backend_rate * 2) {
+        min_base_rate_multiplier = 4;
     }
     // constrain the gyro rate to be a 2^N multiple
-    uint8_t fast_sampling_rate = constrain_int16(get_fast_sampling_rate(), loop_limit, 8);
+    uint8_t fast_sampling_rate_multiplier = constrain_int16(get_fast_sampling_rate(), min_base_rate_multiplier, 8);
 
     // calculate rate we will be giving samples to the backend
-    return constrain_int16(base_odr * fast_sampling_rate, base_odr, max_odr);
+    return constrain_int16(base_backend_rate * fast_sampling_rate_multiplier, base_backend_rate, max_backend_rate);
 }
 
 /*
