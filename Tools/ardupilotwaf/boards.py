@@ -495,7 +495,38 @@ class Board:
                     CANARD_ALLOCATE_SEM=1
                 )
 
+        def log_error_msg(msg):
+            from waflib import Logs
+            Logs.pprint('RED', msg)
 
+        if cfg.options.trusted_flight_issuer and cfg.options.trusted_flight_key:
+
+            sys.path.insert(1, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+            from AP_TrustedFlight.utils.helpers import base64url_decode
+
+            # prepare a temp file to embed issuer string into ROMFS
+            trusted_flight_key_file = cfg.bldnode.make_node('trusted_flight_key.tmp').abspath()
+            trusted_flight_issuer_file = cfg.bldnode.make_node('trusted_flight_issuer.tmp').abspath()
+            with open(trusted_flight_issuer_file, 'w') as f:
+                f.write(cfg.options.trusted_flight_issuer.strip())
+
+            with open(trusted_flight_key_file, 'wb') as f:
+                key = open(cfg.options.trusted_flight_key, 'rb').read()
+                f.write(base64url_decode(key))
+
+            env.ROMFS_FILES += [
+                ('trusted_flight/key.pub', trusted_flight_key_file),
+                ('trusted_flight/token_issuer', trusted_flight_issuer_file)
+            ]
+
+            env.DEFINES.update(
+                AP_JWT_ENABLED=1,
+                AP_TRUSTED_FLIGHT_ENABLED=1
+            )
+
+        elif cfg.options.trusted_flight_issuer or cfg.options.trusted_flight_key:
+            log_error_msg('Trusted Flight Issuer or Trusted Flight Key not provided. Please provide both to enable Trusted Flights feature or none to disable the feature.')
+            exit (1)
 
         if cfg.options.build_dates:
             env.build_dates = True

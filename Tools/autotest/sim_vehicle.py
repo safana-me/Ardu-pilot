@@ -358,6 +358,14 @@ def do_build(opts, frame_options):
     if opts.coverage:
         cmd_configure.append("--coverage")
 
+    if opts.trusted_flight_issuer:
+        cmd_configure.append("--trusted-flight-issuer")
+        cmd_configure.append(opts.trusted_flight_issuer)
+
+    if opts.trusted_flight_key:
+        cmd_configure.append("--trusted-flight-key")
+        cmd_configure.append(opts.trusted_flight_key)
+
     if opts.enable_onvif and 'antennatracker' in frame_options["waf_target"]:
         cmd_configure.append("--enable-onvif")
 
@@ -1159,6 +1167,14 @@ group_sim.add_option("", "--can-peripherals",
                      action='store_true',
                      default=False,
                      help="start a DroneCAN peripheral instance")
+group_sim.add_option("", "--trusted-flight-issuer",
+                     type='string',
+                     default=None,
+                     help="Trusted Flight valid token issuer")
+group_sim.add_option("", "--trusted-flight-key",
+                     type='string',
+                     default=None,
+                     help="Trusted Flight valid token issuer")
 group_sim.add_option("-A", "--sitl-instance-args",
                      type='string',
                      default=None,
