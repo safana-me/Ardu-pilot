@@ -270,10 +270,23 @@ void AP_BattMonitor_INA3221::AddressDriver::timer(void)
                 continue;
             }
             WITH_SEMAPHORE(state->sem);
+
+            // calculate time since last data read
+            const uint32_t tnow = AP_HAL::micros();
+            const uint32_t dt_us = tnow - state->state->last_time_micros;
+
             state->state->healthy = healthy;
             state->state->voltage = bus_voltage;
             state->state->current_amps = shunt_current;
-            state->state->last_time_micros = AP_HAL::micros();
+
+            // update total current drawn since startup
+            if (state->state->last_time_micros != 0 && dt_us < 2000000) {
+                const float mah = calculate_mah(state->state->current_amps, dt_us);
+                state->state->consumed_mah += mah;
+                state->state->consumed_wh  += 0.001 * mah * state->state->voltage;
+            }
+
+            state->state->last_time_micros = tnow;
         }
     }
 }
