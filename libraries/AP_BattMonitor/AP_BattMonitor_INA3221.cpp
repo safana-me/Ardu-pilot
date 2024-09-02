@@ -28,6 +28,10 @@
 #define HAL_BATTMON_INA3221_ADDR 64
 #endif
 
+#ifndef HAL_BATTMON_INA3221_SHUNT_OHMS
+#define HAL_BATTMON_INA3221_SHUNT_OHMS 0.001
+#endif
+
 struct AP_BattMonitor_INA3221::AddressDriver AP_BattMonitor_INA3221::address_driver[HAL_BATTMON_INA3221_MAX_DEVICES];
 uint8_t AP_BattMonitor_INA3221::address_driver_count;
 
@@ -242,16 +246,23 @@ void AP_BattMonitor_INA3221::AddressDriver::timer(void)
         const uint8_t reg_shunt = 1 + channel_offset;
         const uint8_t reg_bus = 2 + channel_offset;
 
-        uint16_t shunt_voltage;
-        if (!read_register(reg_shunt, shunt_voltage)) {
+        uint16_t shunt_val;
+        if (!read_register(reg_shunt, shunt_val)) {
             healthy = false;
-            shunt_voltage = 0;
+            shunt_val = 0;
         }
-        uint16_t bus_voltage;
-        if (!read_register(reg_bus, bus_voltage)) {
+        uint16_t bus_val;
+        if (!read_register(reg_bus, bus_val)) {
             healthy = false;
-            bus_voltage = 0;
+            bus_val = 0;
         }
+
+        // 2s complement number with 3 lowest bits not used, 1 count is 8mV
+        const float bus_voltage = ((int16_t)bus_val >> 3)*8e-3;
+        // 2s complement number with 3 lowest bits not used, 1 count is 40uV
+        const float shunt_voltage = ((int16_t)shunt_val >> 3)*40e-6;
+        const float shunt_resistance = HAL_BATTMON_INA3221_SHUNT_OHMS;
+        const float shunt_current = shunt_voltage/shunt_resistance; // I = V/R
 
         // transfer readings to front end:
         for (auto *state = statelist; state != nullptr; state = state->next) {
@@ -260,8 +271,8 @@ void AP_BattMonitor_INA3221::AddressDriver::timer(void)
             }
             WITH_SEMAPHORE(state->sem);
             state->state->healthy = healthy;
-            state->state->voltage = bus_voltage/32768.0 * 26;
-            state->state->current_amps = shunt_voltage * 0.56f;
+            state->state->voltage = bus_voltage;
+            state->state->current_amps = shunt_current;
             state->state->last_time_micros = AP_HAL::micros();
         }
     }
