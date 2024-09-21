@@ -1170,11 +1170,11 @@ group_sim.add_option("", "--can-peripherals",
 group_sim.add_option("", "--trusted-flight-issuer",
                      type='string',
                      default=None,
-                     help="Trusted Flight valid token issuer")
+                     help="Trusted Flight token issuer")
 group_sim.add_option("", "--trusted-flight-key",
                      type='string',
                      default=None,
-                     help="Trusted Flight valid token issuer")
+                     help="Trusted Flight public key")
 group_sim.add_option("-A", "--sitl-instance-args",
                      type='string',
                      default=None,

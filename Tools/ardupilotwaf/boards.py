@@ -505,8 +505,10 @@ class Board:
             from AP_TrustedFlight.utils.helpers import base64url_decode
 
             # prepare a temp file to embed issuer string into ROMFS
-            trusted_flight_key_file = cfg.bldnode.make_node('trusted_flight_key.tmp').abspath()
-            trusted_flight_issuer_file = cfg.bldnode.make_node('trusted_flight_issuer.tmp').abspath()
+            artifacts = cfg.bldnode.make_node('trusted_flight_artifacts/' + f'{cfg.options.board}_romfs')
+            artifacts.mkdir()
+            trusted_flight_key_file = artifacts.make_node('key.pub').abspath()
+            trusted_flight_issuer_file = artifacts.make_node('issuer').abspath()
             with open(trusted_flight_issuer_file, 'w') as f:
                 f.write(cfg.options.trusted_flight_issuer.strip())
 
@@ -904,6 +906,108 @@ class sitl(Board):
 
     def get_name(self):
         return self.__class__.__name__
+
+
+class sitl_trusted_flight(sitl):
+
+    def _prepare_test_artifacts(self, artifacts_node):
+        
+        sys.path.insert(1, os.path.join(os.path.dirname(__file__), '..', 'scripts/AP_TrustedFlight'))
+        from generate_key_and_token import create_key_pair, create_token, create_invalid_token, TOKEN_ISSUER, JWT_TYPE, JWT_ALG
+
+        import contextlib
+        from datetime import datetime, timezone, timedelta
+
+        with open(os.devnull, 'w') as null, contextlib.redirect_stdout(null), contextlib.redirect_stderr(null):
+            pk_pub_path = f'{artifacts_node}/valid.key'
+            pk = create_key_pair(pk_pub_path)
+            create_token(pk, f'{artifacts_node}/valid')
+            create_invalid_token(pk, f'{artifacts_node}/invalid_base64', encode = False)
+            create_invalid_token(pk, f'{artifacts_node}/invalid_json')
+            create_token(pk, f'{artifacts_node}/no_payload', include_payload = False)
+            create_token(pk, f'{artifacts_node}/no_signature', include_signature = False)
+            create_token(pk, f'{artifacts_node}/missing_typ', header = {
+                'alg': JWT_ALG,
+            })
+            create_token(pk, f'{artifacts_node}/invalid_typ', header = {
+                'typ': 'invalid_typ',
+                'alg': JWT_ALG,
+            })
+            create_token(pk, f'{artifacts_node}/missing_alg', header = {
+                'typ': JWT_TYPE,
+            })
+            create_token(pk, f'{artifacts_node}/invalid_alg', header = {
+                'typ': JWT_TYPE,
+                'alg': "RSA",
+            })
+            create_token(pk, f'{artifacts_node}/missing_iss', payload = {
+                'iat': datetime.now(timezone.utc),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/invalid_iss', payload = {
+                'iss': 'test_issuer',
+                'iat': datetime.now(timezone.utc),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/missing_iat', payload = {
+                'iss': TOKEN_ISSUER,
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/invalid_iat', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': str(datetime.now(timezone.utc)),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/iat_in_future', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc) + timedelta(hours=1),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/missing_nbf', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/invalid_nbf', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc),
+                'nbf': str(datetime.now(timezone.utc)),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=5),
+            })
+            create_token(pk, f'{artifacts_node}/nbf_in_future', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc),
+                'nbf': datetime.now(timezone.utc) + timedelta(minutes=5),
+                'exp': datetime.now(timezone.utc) + timedelta(minutes=6),
+            })
+            create_token(pk, f'{artifacts_node}/missing_exp', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc),
+            })
+            create_token(pk, f'{artifacts_node}/invalid_exp', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc),
+                'exp': str(datetime.now(timezone.utc) + timedelta(minutes=5)),
+            })
+            create_token(pk, f'{artifacts_node}/exp_in_past', payload = {
+                'iss': TOKEN_ISSUER,
+                'iat': datetime.now(timezone.utc),
+                'exp': datetime.now(timezone.utc) - timedelta(minutes=2),
+            })
+
+            another_pk_pub_path = f'{artifacts_node}/another.key'
+
+            pk = create_key_pair(another_pk_pub_path)
+            create_token(pk, f'{artifacts_node}/invalid')
+
+    def configure_env(self, cfg, env):
+        tfl_node = cfg.bldnode.make_node('trusted_flight_artifacts/autotest')
+        tfl_node.mkdir()
+        
+        self._prepare_test_artifacts(tfl_node)
+        cfg.options.trusted_flight_issuer = 'test.cname'
+        cfg.options.trusted_flight_key = tfl_node.abspath() + '/valid.key'
+        super(sitl_trusted_flight, self).configure_env(cfg, env)
 
 
 class sitl_periph(sitl):
