@@ -169,6 +169,13 @@ for t in $CI_BUILD_TARGET; do
         run_autotest "Blimp" "build.Blimp" "test.Blimp"
         continue
     fi
+    if [ "$t" == "sitltest-trusted-flight" ]; then
+        sudo apt-get update
+        sudo apt-get install -y python3-dev
+        python3 -m pip install pymonocypher==3.1.3.2
+        run_autotest "Copter" "build.TrustedFlight" "test.TrustedFlight"
+        continue
+    fi
 
     if [ "$t" == "unit-tests" ]; then
         run_autotest "Unit Tests" "build.unit_tests" "run.unit_tests"
