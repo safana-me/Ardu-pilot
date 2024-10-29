@@ -11,6 +11,10 @@ enum class ServiceIndex: uint8_t {
 #if AP_DDS_ARM_CHECK_SERVER_ENABLED
     PREARM_CHECK,
 #endif // AP_DDS_ARM_CHECK_SERVER_ENABLED
+#if AP_DDS_RALLY_SERVER_ENABLED
+    GET_RALLY,
+    SET_RALLY,
+#endif // AP_DDS_RALLY_SERVER_ENABLED
 #if AP_DDS_PARAMETER_SERVER_ENABLED
     SET_PARAMETERS,
     GET_PARAMETERS
@@ -66,6 +70,28 @@ constexpr struct AP_DDS_Client::Service_table AP_DDS_Client::services[] = {
         .reply_topic_name = "rr/ap/prearm_checkReply",
     },
 #endif // AP_DDS_ARM_CHECK_SERVER_ENABLED    
+#if AP_DDS_RALLY_SERVER_ENABLED
+    {
+        .req_id = to_underlying(ServiceIndex::GET_RALLY),
+        .rep_id = to_underlying(ServiceIndex::GET_RALLY),
+        .service_rr = Service_rr::Replier,
+        .service_name = "rs/ap/rally_getService",
+        .request_type = "ardupilot_msgs::srv::dds_::RallyGet_Request_",
+        .reply_type = "ardupilot_msgs::srv::dds_::RallyGet_Response_",
+        .request_topic_name = "rq/ap/rally_getRequest",
+        .reply_topic_name = "rr/ap/rally_getReply",
+    },
+    {
+        .req_id = to_underlying(ServiceIndex::SET_RALLY),
+        .rep_id = to_underlying(ServiceIndex::SET_RALLY),
+        .service_rr = Service_rr::Replier,
+        .service_name = "rs/ap/rally_setService",
+        .request_type = "ardupilot_msgs::srv::dds_::RallySet_Request_",
+        .reply_type = "ardupilot_msgs::srv::dds_::RallySet_Response_",
+        .request_topic_name = "rq/ap/rally_setRequest",
+        .reply_topic_name = "rr/ap/rally_setReply",
+    },
+#endif // AP_DDS_RALLY_SERVER_ENABLED
 #if AP_DDS_PARAMETER_SERVER_ENABLED
     {
         .req_id = to_underlying(ServiceIndex::SET_PARAMETERS),
