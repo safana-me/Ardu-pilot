@@ -19,8 +19,8 @@ The TBS LUCID PRO is a flight controller produced by [Team Black Sheep](https://
 
 ## Pinout
 
-![TBS LUCID PRO Board Top](Top.jpg "TBS LUCID PRO Top")
-![TBS LUCID PRO Board Bottom](Bottom.jpg "TBS LUCID PRO Bottom")
+![TBS LUCID PRO Board Top](Top.png "TBS LUCID PRO Top")
+![TBS LUCID PRO Board Bottom](Bottom.png "TBS LUCID PRO Bottom")
 
 ## UART Mapping
 
