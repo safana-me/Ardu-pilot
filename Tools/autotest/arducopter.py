@@ -6437,8 +6437,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.reboot_sitl()
 
         self.set_parameters({
-            "SNTCH1_FREQ": 120,
-            "SNTCH2_FREQ": 240,
+            "SNOTCH1_FREQ": 120,
+            "SNOTCH2_FREQ": 240,
         })
 
 
