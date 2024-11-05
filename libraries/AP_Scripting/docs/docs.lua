@@ -1918,35 +1918,35 @@ function ins:get_gyro(instance) end
 function ins:get_accel(instance) end
 
 -- desc
----@class HarmonicNotch_ud
-local HarmonicNotch_ud = {}
+---@class AP_InertialSensor__HarmonicNotch_ud
+local AP_InertialSensor__HarmonicNotch_ud = {}
 
 -- Get a specific scripting enabled harmonic notch instance
 ---@param instance integer -- the 0-based index of the harmonic notch instance to return.
----@return HarmonicNotch_ud|nil
+---@return AP_InertialSensor__HarmonicNotch_ud|nil
 function ins:get_harmonic_notch(instance) end
 
 -- get array field
 ---@param index integer
 ---@return number
-function HarmonicNotch_ud:get_frequency(index) end
+function AP_InertialSensor__HarmonicNotch_ud:get_frequency(index) end
 
 -- set array field
 ---@param index integer
 ---@param value number
-function HarmonicNotch_ud:set_frequency(index, value) end
+function AP_InertialSensor__HarmonicNotch_ud:set_frequency(index, value) end
 
 -- get field
 ---@return number
-function HarmonicNotch_ud:get_num_frequencies() end
+function AP_InertialSensor__HarmonicNotch_ud:get_num_frequencies() end
 
 -- set field
 ---@param value number
-function HarmonicNotch_ud:set_num_frequencies(value) end
+function AP_InertialSensor__HarmonicNotch_ud:set_num_frequencies(value) end
 
 -- desc
 ---@param value number
-function HarmonicNotch_ud:update_frequency(value) end
+function AP_InertialSensor__HarmonicNotch_ud:update_frequency(value) end
 
 -- desc
 Motors_dynamic = {}
