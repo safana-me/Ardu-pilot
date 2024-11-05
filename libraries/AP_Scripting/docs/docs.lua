@@ -1937,11 +1937,11 @@ function AP_InertialSensor__HarmonicNotch_ud:get_frequency(index) end
 function AP_InertialSensor__HarmonicNotch_ud:set_frequency(index, value) end
 
 -- get field
----@return number
+---@return integer
 function AP_InertialSensor__HarmonicNotch_ud:get_num_frequencies() end
 
 -- set field
----@param value number
+---@param value integer
 function AP_InertialSensor__HarmonicNotch_ud:set_num_frequencies(value) end
 
 -- desc
