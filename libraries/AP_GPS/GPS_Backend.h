@@ -72,6 +72,7 @@ public:
     //MAVLink methods
     virtual bool supports_mavlink_gps_rtk_message() const { return false; }
     virtual void send_mavlink_gps_rtk(mavlink_channel_t chan);
+    void send_mavlink_gnss(class GCS_MAVLINK &link);
     virtual void handle_msg(const mavlink_message_t &msg) { return ; }
 #endif
 

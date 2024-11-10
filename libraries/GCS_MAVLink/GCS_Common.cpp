@@ -1148,6 +1148,9 @@ ap_message GCS_MAVLINK::mavlink_id_to_ap_message_id(const uint32_t mavlink_id) c
 #if AP_AIRSPEED_ENABLED
         { MAVLINK_MSG_ID_AIRSPEED, MSG_AIRSPEED},
 #endif
+#if AP_GPS_GNSS_SENDING_ENABLED
+        { MAVLINK_MSG_ID_GNSS, MSG_GNSS},
+#endif
             };
 
     for (uint8_t i=0; i<ARRAY_SIZE(map); i++) {
@@ -6259,6 +6262,12 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         break;
 #endif
 #endif  // AP_GPS_ENABLED
+#if AP_GPS_GNSS_SENDING_ENABLED
+    case MSG_GNSS:
+        CHECK_PAYLOAD_SIZE(GNSS);
+        AP::gps().send_mavlink_gnss(*this);
+        break;
+#endif
 #if AP_AHRS_ENABLED
     case MSG_LOCAL_POSITION:
         CHECK_PAYLOAD_SIZE(LOCAL_POSITION_NED);

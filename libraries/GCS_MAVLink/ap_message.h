@@ -9,6 +9,7 @@
 #include "GCS_config.h"
 
 #include <AP_AHRS/AP_AHRS_config.h>
+#include <AP_GPS/AP_GPS_config.h>
 
 enum ap_message : uint8_t {
     MSG_HEARTBEAT,
@@ -103,5 +104,8 @@ enum ap_message : uint8_t {
     MSG_HIGHRES_IMU,
 #endif
     MSG_AIRSPEED,
+#if AP_GPS_GNSS_SENDING_ENABLED
+    MSG_GNSS,
+#endif
     MSG_LAST // MSG_LAST must be the last entry in this enum
 };
