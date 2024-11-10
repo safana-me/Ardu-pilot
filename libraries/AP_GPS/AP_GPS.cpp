@@ -273,6 +273,30 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
     AP_SUBGROUPINFO(params[1], "2_", 33, AP_GPS, AP_GPS::Params),
 #endif
 
+#if GPS_MAX_INSTANCES > 2
+    // @Group: 3_
+    // @Path: AP_GPS_Params.cpp
+    AP_SUBGROUPINFO(params[2], "3_", 34, AP_GPS, AP_GPS::Params),
+#endif
+
+#if GPS_MAX_INSTANCES > 3
+    // @Group: 4_
+    // @Path: AP_GPS_Params.cpp
+    AP_SUBGROUPINFO(params[3], "4_", 35, AP_GPS, AP_GPS::Params),
+#endif
+
+#if GPS_MAX_INSTANCES > 4
+    // @Group: 5_
+    // @Path: AP_GPS_Params.cpp
+    AP_SUBGROUPINFO(params[4], "5_", 36, AP_GPS, AP_GPS::Params),
+#endif
+
+#if GPS_MAX_INSTANCES > 5
+    // @Group: 6_
+    // @Path: AP_GPS_Params.cpp
+    AP_SUBGROUPINFO(params[5], "6_", 37, AP_GPS, AP_GPS::Params),
+#endif
+
     AP_GROUPEND
 };
 

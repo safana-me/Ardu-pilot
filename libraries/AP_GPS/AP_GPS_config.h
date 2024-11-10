@@ -17,7 +17,7 @@
 #endif
 
 #ifndef GPS_MAX_INSTANCES
-#define GPS_MAX_INSTANCES 3
+#define GPS_MAX_INSTANCES 4
 #endif // GPS_MAX_INSTANCES
 
 #endif  // AP_GPS_ENABLED
