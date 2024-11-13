@@ -552,13 +552,13 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.start_subtest("Radio failsafe RTL fails into land mode due to bad position.")
         self.set_parameter('FS_THR_ENABLE', 1)
         self.takeoffAndMoveAway()
-        self.set_parameter('SIM_GPS_DISABLE', 1)
+        self.set_parameter('SIM_GPS1_ENABLE', 0)
         self.delay_sim_time(5)
         self.set_parameter("SIM_RC_FAIL", 1)
         self.wait_mode("LAND")
         self.wait_landed_and_disarmed()
         self.set_parameter("SIM_RC_FAIL", 0)
-        self.set_parameter('SIM_GPS_DISABLE', 0)
+        self.set_parameter('SIM_GPS1_ENABLE', 1)
         self.wait_ekf_happy()
         self.end_subtest("Completed Radio failsafe RTL fails into land mode due to bad position.")
 
@@ -567,13 +567,13 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.start_subtest("Radio failsafe SmartRTL->RTL fails into land mode due to bad position.")
         self.set_parameter('FS_THR_ENABLE', 4)
         self.takeoffAndMoveAway()
-        self.set_parameter('SIM_GPS_DISABLE', 1)
+        self.set_parameter('SIM_GPS1_ENABLE', 0)
         self.delay_sim_time(5)
         self.set_parameter("SIM_RC_FAIL", 1)
         self.wait_mode("LAND")
         self.wait_landed_and_disarmed()
         self.set_parameter("SIM_RC_FAIL", 0)
-        self.set_parameter('SIM_GPS_DISABLE', 0)
+        self.set_parameter('SIM_GPS1_ENABLE', 1)
         self.wait_ekf_happy()
         self.end_subtest("Completed Radio failsafe SmartRTL->RTL fails into land mode due to bad position.")
 
@@ -582,13 +582,13 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.start_subtest("Radio failsafe SmartRTL->LAND fails into land mode due to bad position.")
         self.set_parameter('FS_THR_ENABLE', 5)
         self.takeoffAndMoveAway()
-        self.set_parameter('SIM_GPS_DISABLE', 1)
+        self.set_parameter('SIM_GPS1_ENABLE', 0)
         self.delay_sim_time(5)
         self.set_parameter("SIM_RC_FAIL", 1)
         self.wait_mode("LAND")
         self.wait_landed_and_disarmed()
         self.set_parameter("SIM_RC_FAIL", 0)
-        self.set_parameter('SIM_GPS_DISABLE', 0)
+        self.set_parameter('SIM_GPS1_ENABLE', 1)
         self.wait_ekf_happy()
         self.end_subtest("Completed Radio failsafe SmartRTL->LAND fails into land mode due to bad position.")
 
@@ -597,9 +597,9 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.start_subtest("Radio failsafe SmartRTL->RTL fails into RTL mode due to no path.")
         self.set_parameter('FS_THR_ENABLE', 4)
         self.takeoffAndMoveAway()
-        self.set_parameter('SIM_GPS_DISABLE', 1)
+        self.set_parameter('SIM_GPS1_ENABLE', 0)
         self.wait_statustext("SmartRTL deactivated: bad position", timeout=60)
-        self.set_parameter('SIM_GPS_DISABLE', 0)
+        self.set_parameter('SIM_GPS1_ENABLE', 1)
         self.wait_ekf_happy()
         self.delay_sim_time(5)
         self.set_parameter("SIM_RC_FAIL", 1)
@@ -613,9 +613,9 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.start_subtest("Radio failsafe SmartRTL->LAND fails into land mode due to no path.")
         self.set_parameter('FS_THR_ENABLE', 5)
         self.takeoffAndMoveAway()
-        self.set_parameter('SIM_GPS_DISABLE', 1)
+        self.set_parameter('SIM_GPS1_ENABLE', 0)
         self.wait_statustext("SmartRTL deactivated: bad position", timeout=60)
-        self.set_parameter('SIM_GPS_DISABLE', 0)
+        self.set_parameter('SIM_GPS1_ENABLE', 1)
         self.wait_ekf_happy()
         self.delay_sim_time(5)
         self.set_parameter("SIM_RC_FAIL", 1)
@@ -1958,8 +1958,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         glitch_current = 0
         self.progress("Apply first glitch")
         self.set_parameters({
-            "SIM_GPS_GLITCH_X": glitch_lat[glitch_current],
-            "SIM_GPS_GLITCH_Y": glitch_lon[glitch_current],
+            "SIM_GPS1_GLTCH_X": glitch_lat[glitch_current],
+            "SIM_GPS1_GLTCH_Y": glitch_lon[glitch_current],
         })
 
         # record position for 30 seconds
@@ -1973,15 +1973,15 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
                     glitch_current = -1
                     self.progress("Completed Glitches")
                     self.set_parameters({
-                        "SIM_GPS_GLITCH_X": 0,
-                        "SIM_GPS_GLITCH_Y": 0,
+                        "SIM_GPS1_GLTCH_X": 0,
+                        "SIM_GPS1_GLTCH_Y": 0,
                     })
                 else:
                     self.progress("Applying glitch %u" % glitch_current)
                     # move onto the next glitch
                     self.set_parameters({
-                        "SIM_GPS_GLITCH_X": glitch_lat[glitch_current],
-                        "SIM_GPS_GLITCH_Y": glitch_lon[glitch_current],
+                        "SIM_GPS1_GLTCH_X": glitch_lat[glitch_current],
+                        "SIM_GPS1_GLTCH_Y": glitch_lon[glitch_current],
                     })
 
             # start displaying distance moved after all glitches applied
@@ -2002,8 +2002,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         # disable gps glitch
         if glitch_current != -1:
             self.set_parameters({
-                "SIM_GPS_GLITCH_X": 0,
-                "SIM_GPS_GLITCH_Y": 0,
+                "SIM_GPS1_GLTCH_X": 0,
+                "SIM_GPS1_GLTCH_Y": 0,
             })
         if self.use_map:
             self.show_gps_and_sim_positions(False)
@@ -2024,7 +2024,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.wait_attitude(desroll=0, despitch=0, timeout=10, tolerance=1)
 
         # apply glitch
-        self.set_parameter("SIM_GPS_GLITCH_X", 0.001)
+        self.set_parameter("SIM_GPS1_GLTCH_X", 0.001)
 
         # check lean angles remain stable for 20 seconds
         tstart = self.get_sim_time()
@@ -2098,11 +2098,11 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         # stop and test loss of GPS for a short time - it should resume GPS use without falling back into a non aiding mode
         self.change_mode("LOITER")
         self.set_parameters({
-            "SIM_GPS_DISABLE": 1,
+            "SIM_GPS1_ENABLE": 0,
         })
         self.delay_sim_time(2)
         self.set_parameters({
-            "SIM_GPS_DISABLE": 0,
+            "SIM_GPS1_ENABLE": 1,
         })
         # regaining GPS should not result in it falling back to a non-navigation mode
         self.wait_ekf_flags(mavutil.mavlink.ESTIMATOR_POS_HORIZ_ABS, 0, timeout=1)
@@ -2118,8 +2118,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         glitch_current = 0
         self.progress("Apply first glitch")
         self.set_parameters({
-            "SIM_GPS_GLITCH_X": glitch_lat[glitch_current],
-            "SIM_GPS_GLITCH_Y": glitch_lon[glitch_current],
+            "SIM_GPS1_GLTCH_X": glitch_lat[glitch_current],
+            "SIM_GPS1_GLTCH_Y": glitch_lon[glitch_current],
         })
 
         # record position for 30 seconds
@@ -2132,15 +2132,15 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
                 if glitch_current < glitch_num:
                     self.progress("Applying glitch %u" % glitch_current)
                     self.set_parameters({
-                        "SIM_GPS_GLITCH_X": glitch_lat[glitch_current],
-                        "SIM_GPS_GLITCH_Y": glitch_lon[glitch_current],
+                        "SIM_GPS1_GLTCH_X": glitch_lat[glitch_current],
+                        "SIM_GPS1_GLTCH_Y": glitch_lon[glitch_current],
                     })
 
         # turn off glitching
         self.progress("Completed Glitches")
         self.set_parameters({
-            "SIM_GPS_GLITCH_X": 0,
-            "SIM_GPS_GLITCH_Y": 0,
+            "SIM_GPS1_GLTCH_X": 0,
+            "SIM_GPS1_GLTCH_Y": 0,
         })
 
         # continue with the mission
@@ -2526,7 +2526,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.set_parameters({
             "SIM_FLOW_ENABLE": 1,
             "FLOW_TYPE": 10,
-            "SIM_GPS_DISABLE": 1,
+            "SIM_GPS1_ENABLE": 0,
             "SIM_TERRAIN": 0,
         })
 
@@ -2980,13 +2980,13 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         '''fly a mission far from the vehicle origin'''
         # Fly mission #1
         self.set_parameters({
-            "SIM_GPS_DISABLE": 1,
+            "SIM_GPS1_ENABLE": 0,
         })
         self.reboot_sitl()
         nz = mavutil.location(-43.730171, 169.983118, 1466.3, 270)
         self.set_origin(nz)
         self.set_parameters({
-            "SIM_GPS_DISABLE": 0,
+            "SIM_GPS1_ENABLE": 1,
         })
         self.progress("# Load copter_mission")
         # load the waypoint count
@@ -3028,8 +3028,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "GPS1_TYPE": 9,
             "GPS2_TYPE": 9,
             # disable simulated GPS, so only via DroneCAN
-            "SIM_GPS_DISABLE": 1,
-            "SIM_GPS2_DISABLE": 1,
+            "SIM_GPS1_ENABLE": 0,
+            "SIM_GPS2_ENABLE": 0,
             # this ensures we use DroneCAN baro and compass
             "SIM_BARO_COUNT" : 0,
             "SIM_MAG1_DEVID" : 0,
@@ -3206,7 +3206,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "EK3_SRC1_POSZ": 3,
             "EK3_AFFINITY" : 1,
             "GPS2_TYPE" : 1,
-            "SIM_GPS2_DISABLE" : 0,
+            "SIM_GPS2_ENABLE" : 1,
             "SIM_GPS2_GLTCH_Z" : -30
             })
         self.reboot_sitl()
@@ -7245,7 +7245,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.context_push()
         self.set_parameters({
             "GPS1_TYPE": 2,
-            "SIM_GPS_DISABLE": 1,
+            "SIM_GPS1_ENABLE": 0,
         })
         # if there is no GPS at all then we must direct EK3 to not use
         # it at all.  Otherwise it will never initialise, as it wants
@@ -8986,7 +8986,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "RNGFND1_POS_Y": -0.07,
             "RNGFND1_POS_Z": -0.005,
             "SIM_SONAR_SCALE": 30,
-            "SIM_GPS2_DISABLE": 0,
+            "SIM_GPS2_ENABLE": 1,
         })
         self.reboot_sitl()
 
@@ -9045,7 +9045,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.set_parameters({
                 "GPS2_TYPE": 1,
                 "SIM_GPS2_TYPE": 1,
-                "SIM_GPS2_DISABLE": 0,
+                "SIM_GPS2_ENABLE": 1,
                 "GPS_AUTO_SWITCH": 2,
             })
             self.reboot_sitl()
@@ -9118,9 +9118,9 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "WP_YAW_BEHAVIOR": 0,  # do not yaw
             "GPS2_TYPE": 1,
             "SIM_GPS2_TYPE": 1,
-            "SIM_GPS2_DISABLE": 0,
-            "SIM_GPS_POS_X": 1.0,
-            "SIM_GPS_POS_Y": -1.0,
+            "SIM_GPS2_ENABLE": 1,
+            "SIM_GPS1_POS_X": 1.0,
+            "SIM_GPS1_POS_Y": -1.0,
             "SIM_GPS2_POS_X": -1.0,
             "SIM_GPS2_POS_Y": 1.0,
             "GPS_AUTO_SWITCH": 2,
@@ -9178,9 +9178,9 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "WP_YAW_BEHAVIOR": 0,  # do not yaw
             "GPS2_TYPE": 1,
             "SIM_GPS2_TYPE": 1,
-            "SIM_GPS2_DISABLE": 0,
-            "SIM_GPS_POS_X": 1.0,
-            "SIM_GPS_POS_Y": -1.0,
+            "SIM_GPS2_ENABLE": 1,
+            "SIM_GPS1_POS_X": 1.0,
+            "SIM_GPS1_POS_Y": -1.0,
             "SIM_GPS2_POS_X": -1.0,
             "SIM_GPS2_POS_Y": 1.0,
             "GPS_AUTO_SWITCH": 2,
@@ -9188,8 +9188,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         # configure velocity errors such that the 1st GPS should be
         # 4/5, second GPS 1/5 of result (0.5**2)/((0.5**2)+(1.0**2))
         self.set_parameters({
-            "SIM_GPS_VERR_X": 0.3,  # m/s
-            "SIM_GPS_VERR_Y": 0.4,
+            "SIM_GPS1_VERR_X": 0.3,  # m/s
+            "SIM_GPS1_VERR_Y": 0.4,
             "SIM_GPS2_VERR_X": 0.6,  # m/s
             "SIM_GPS2_VERR_Y": 0.8,
             "GPS_BLEND_MASK": 4,  # use only speed for blend calculations
@@ -9245,9 +9245,9 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "WP_YAW_BEHAVIOR": 0,  # do not yaw
             "GPS2_TYPE": 1,
             "SIM_GPS2_TYPE": 1,
-            "SIM_GPS2_DISABLE": 0,
-            "SIM_GPS_POS_X": 1.0,
-            "SIM_GPS_POS_Y": -1.0,
+            "SIM_GPS2_ENABLE": 1,
+            "SIM_GPS1_POS_X": 1.0,
+            "SIM_GPS1_POS_Y": -1.0,
             "SIM_GPS2_POS_X": -1.0,
             "SIM_GPS2_POS_Y": 1.0,
             "GPS_AUTO_SWITCH": 2,
@@ -11754,7 +11754,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         '''ensure Guided acts appropriately when force-armed'''
         self.set_parameters({
             "EK3_SRC2_VELXY": 5,
-            "SIM_GPS_DISABLE": 1,
+            "SIM_GPS1_ENABLE": 0,
         })
         self.load_default_params_file("copter-optflow.parm")
         self.reboot_sitl()
@@ -11941,7 +11941,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         '''check FlightOption::REQUIRE_POSITION_FOR_ARMING works'''
         self.context_push()
         self.set_parameters({
-            "SIM_GPS_NUMSATS": 3,  # EKF does not like < 6
+            "SIM_GPS1_NUMSATS": 3,  # EKF does not like < 6
         })
         self.reboot_sitl()
         self.change_mode('STABILIZE')
@@ -12142,7 +12142,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
 
         # switch to EKF3
         self.set_parameters({
-            'SIM_GPS_GLITCH_X' : 0.001, # about 100m
+            'SIM_GPS1_GLTCH_X' : 0.001, # about 100m
             'EK3_CHECK_SCALE' : 100,
             'AHRS_EKF_TYPE'   : 3})
 
@@ -12167,6 +12167,82 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
 
         # restart GPS driver
         self.reboot_sitl()
+
+    def ManyGPS(self):
+        '''check many gps support'''
+        self.set_parameters({
+            'GPS2_TYPE': 1,
+            'GPS3_TYPE': 1,
+            'GPS4_TYPE': 1,
+
+            'SIM_GPS1_NUMSATS': 21,
+
+            'SIM_GPS2_ENABLE': 1,
+            'SIM_GPS2_NUMSATS': 22,
+
+            'SIM_GPS3_TYPE': 1,
+            'SIM_GPS3_ENABLE': 1,
+            'SIM_GPS3_NUMSATS': 23,
+
+            'SIM_GPS4_TYPE': 1,
+            'SIM_GPS4_ENABLE': 1,
+            'SIM_GPS4_NUMSATS': 24,
+
+            'SERIAL5_PROTOCOL': 5,
+            'SERIAL6_PROTOCOL': 5,
+        })
+        self.customise_SITL_commandline([
+            "--serial5=sim:gps:3:",
+            "--serial6=sim:gps:4:",
+        ])
+
+        tstart = self.get_sim_time()
+        i = 0
+        while i < 4:
+            if self.get_sim_time_cached() - tstart > 200:
+                raise NotAchievedException(f"Did not get GNSS message {i}")
+            m = self.assert_receive_message('GNSS')
+            if m.id != i:
+                continue
+            self.dump_message_verbose(m)
+            self.assert_message_field_values(m, {
+                'satellites_visible': 20 + i + 1,
+                'yaw': 0,
+            })
+            i += 1
+
+        self.start_subtest("GPS-for-yaw")
+        self.set_parameters({
+            "SIM_GPS3_HDG": 4,
+            "SIM_GPS4_HDG": 2,
+
+            "GPS3_TYPE": 17,  # RTK base
+            "GPS3_POS_X": -0.5,
+            "GPS3_POS_Y": -0.5,
+            "SIM_GPS3_POS_X": -0.5,
+            "SIM_GPS3_POS_Y": -0.5,
+
+            "GPS4_TYPE": 18,  # RTK rover
+            "GPS4_POS_X": 0.5,
+            "GPS4_POS_Y": 0.5,
+            "SIM_GPS4_POS_X": 0.5,
+            "SIM_GPS4_POS_Y": 0.5,
+        })
+        self.reboot_sitl()
+
+        tstart = self.get_sim_time()
+        while True:
+            if self.get_sim_time_cached() - tstart > 120:
+                raise NotAchievedException("Did not get GNSS yaw")
+
+            m = self.assert_receive_message('GNSS', verbose=True, timeout=120)
+
+#            if m.id != 4:
+#                continue
+
+            if m.yaw != 0 and m.yaw != 65535:
+                self.progress(f"GPS{m.id+1} provided yaw")
+                break
 
     def tests2b(self):  # this block currently around 9.5mins here
         '''return list of all tests'''
@@ -12246,6 +12322,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.RPLidarA2,
             self.SafetySwitch,
             self.BrakeZ,
+            self.ManyGPS,
             self.MAV_CMD_DO_FLIGHTTERMINATION,
             self.MAV_CMD_DO_LAND_START,
             self.MAV_CMD_SET_EKF_SOURCE_SET,

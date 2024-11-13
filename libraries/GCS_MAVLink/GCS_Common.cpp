@@ -1033,7 +1033,7 @@ ap_message GCS_MAVLINK::mavlink_id_to_ap_message_id(const uint32_t mavlink_id) c
 #if AP_GPS_ENABLED
         { MAVLINK_MSG_ID_GPS_RAW_INT,           MSG_GPS_RAW},
         { MAVLINK_MSG_ID_GPS_RTK,               MSG_GPS_RTK},
-#if GPS_MAX_RECEIVERS > 1
+#if GPS_MAX_INSTANCES > 1
         { MAVLINK_MSG_ID_GPS2_RAW,              MSG_GPS2_RAW},
         { MAVLINK_MSG_ID_GPS2_RTK,              MSG_GPS2_RTK},
 #endif
@@ -1147,6 +1147,9 @@ ap_message GCS_MAVLINK::mavlink_id_to_ap_message_id(const uint32_t mavlink_id) c
 #endif
 #if AP_AIRSPEED_ENABLED
         { MAVLINK_MSG_ID_AIRSPEED, MSG_AIRSPEED},
+#endif
+#if AP_GPS_GNSS_SENDING_ENABLED
+        { MAVLINK_MSG_ID_GNSS, MSG_GNSS},
 #endif
             };
 
@@ -6246,19 +6249,25 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         CHECK_PAYLOAD_SIZE(GPS_RTK);
         AP::gps().send_mavlink_gps_rtk(chan, 0);
         break;
-#if GPS_MAX_RECEIVERS > 1
+#if GPS_MAX_INSTANCES > 1
     case MSG_GPS2_RAW:
         CHECK_PAYLOAD_SIZE(GPS2_RAW);
         AP::gps().send_mavlink_gps2_raw(chan);
         break;
 #endif
-#if GPS_MAX_RECEIVERS > 1
+#if GPS_MAX_INSTANCES > 1
     case MSG_GPS2_RTK:
         CHECK_PAYLOAD_SIZE(GPS2_RTK);
         AP::gps().send_mavlink_gps_rtk(chan, 1);
         break;
 #endif
 #endif  // AP_GPS_ENABLED
+#if AP_GPS_GNSS_SENDING_ENABLED
+    case MSG_GNSS:
+        CHECK_PAYLOAD_SIZE(GNSS);
+        AP::gps().send_mavlink_gnss(*this);
+        break;
+#endif
 #if AP_AHRS_ENABLED
     case MSG_LOCAL_POSITION:
         CHECK_PAYLOAD_SIZE(LOCAL_POSITION_NED);
