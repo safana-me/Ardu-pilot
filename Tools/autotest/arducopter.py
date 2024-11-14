@@ -5825,6 +5825,49 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.context_pop()
         self.reboot_sitl()
 
+    def AutoYawDO_MOUNT_CONTROL(self):
+        '''test AutoYaw behaviour when MAV_CMD_DO_MOUNT_CONTROL sent to Mount without Yaw control'''
+
+        # setup mount parameters
+        self.context_push()
+
+        yaw_servo = 7
+        self.setup_servo_mount(roll_servo=5, pitch_servo=6, yaw_servo=yaw_servo)
+        # Disable Mount Yaw servo
+        self.set_parameters({
+            "SERVO%u_FUNCTION" % yaw_servo: 0,
+        })
+        self.reboot_sitl() # to handle MNT_TYPE changing
+
+        self.takeoff(20, mode='GUIDED')
+
+        for mount_yaw in [-45, 0, 45]:
+            heading = 330
+            self.guided_achieve_heading(heading)
+            self.assert_heading(heading)
+
+            self.neutralise_gimbal()
+
+            r = 15
+            p = 20
+            self.run_cmd_int(
+                mavutil.mavlink.MAV_CMD_DO_MOUNT_CONTROL,
+                p1=p,
+                p2=r,
+                p3=mount_yaw,
+                p7=mavutil.mavlink.MAV_MOUNT_MODE_MAVLINK_TARGETING,
+            )
+            self.delay_sim_time(5)
+            # We have disabled yaw servo, so expect mount yaw to be zero
+            self.assert_mount_rpy(r, p, 0)
+            # But we expect the copter to yaw instead
+            self.assert_heading(heading + mount_yaw)
+
+        self.do_RTL()
+
+        self.context_pop()
+        self.reboot_sitl()
+
     def MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE(self):
         '''test MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE mavlink command'''
         # setup mount parameters
@@ -9789,28 +9832,15 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
 
     def GPSForYaw(self):
         '''Moving baseline GPS yaw'''
-        self.context_push()
         self.load_default_params_file("copter-gps-for-yaw.parm")
         self.reboot_sitl()
-        ex = None
-        try:
-            self.wait_gps_fix_type_gte(6, message_type="GPS2_RAW", verbose=True)
-            m = self.assert_receive_message("GPS2_RAW")
-            self.progress(self.dump_message_verbose(m))
-            want = 27000
-            if abs(m.yaw - want) > 500:
-                raise NotAchievedException("Expected to get GPS-from-yaw (want %f got %f)" % (want, m.yaw))
-            self.wait_ready_to_arm()
-        except Exception as e:
-            self.print_exception_caught(e)
-            ex = e
 
-        self.context_pop()
-
-        self.reboot_sitl()
-
-        if ex is not None:
-            raise ex
+        self.wait_gps_fix_type_gte(6, message_type="GPS2_RAW", verbose=True)
+        m = self.assert_receive_message("GPS2_RAW", very_verbose=True)
+        want = 27000
+        if abs(m.yaw - want) > 500:
+            raise NotAchievedException("Expected to get GPS-from-yaw (want %f got %f)" % (want, m.yaw))
+        self.wait_ready_to_arm()
 
     def SMART_RTL_EnterLeave(self):
         '''check SmartRTL behaviour when entering/leaving'''
@@ -10695,6 +10725,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
              self.MountYawVehicleForMountROI,
              self.MAV_CMD_DO_MOUNT_CONTROL,
              self.MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE,
+             self.AutoYawDO_MOUNT_CONTROL,
              self.Button,
              self.ShipTakeoff,
              self.RangeFinder,
@@ -10763,6 +10794,58 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.wait_statustext('POI.*-35.*149', check_context=True, regex=True)
         self.set_rc(12, 1000)
 
+        self.context_pop()
+        self.reboot_sitl()
+
+    def ScriptCopterPosOffsets(self):
+        '''test the copter-posoffset.lua example script'''
+        self.context_push()
+
+        # enable scripting and arming/takingoff in Auto mode
+        self.set_parameters({
+            "SCR_ENABLE": 1,
+            "AUTO_OPTIONS": 3,
+            "RC12_OPTION": 300
+        })
+        self.reboot_sitl()
+
+        # install copter-posoffset script
+        self.install_example_script_context('copter-posoffset.lua')
+        self.reboot_sitl()
+
+        # create simple mission with a single takeoff command
+        self.upload_simple_relhome_mission([
+            (mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 20)
+        ])
+
+        # switch to loiter to wait for position estimate (aka GPS lock)
+        self.change_mode('LOITER')
+        self.wait_ready_to_arm()
+
+        # arm and takeoff in Auto mode
+        self.change_mode('AUTO')
+        self.arm_vehicle()
+
+        # wait for vehicle to climb to at least 10m
+        self.wait_altitude(8, 12, relative=True)
+
+        # add position offset to East and confirm vehicle moves
+        self.set_parameter("PSC_OFS_POS_E", 20)
+        self.set_rc(12, 2000)
+        self.wait_distance(18)
+
+        # remove position offset and wait for vehicle to return home
+        self.set_parameter("PSC_OFS_POS_E", 0)
+        self.wait_distance_to_home(distance_min=0, distance_max=4, timeout=20)
+
+        # add velocity offset and confirm vehicle moves
+        self.set_parameter("PSC_OFS_VEL_N", 5)
+        self.wait_groundspeed(4.8, 5.2, minimum_duration=5, timeout=20)
+
+        # remove velocity offset and switch to RTL
+        self.set_parameter("PSC_OFS_VEL_N", 0)
+        self.set_rc(12, 1000)
+        self.do_RTL()
         self.context_pop()
         self.reboot_sitl()
 
@@ -12133,6 +12216,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.TerrainDBPreArm,
             self.ThrottleGainBoost,
             self.ScriptMountPOI,
+            self.ScriptCopterPosOffsets,
             self.MountSolo,
             self.FlyMissionTwice,
             self.FlyMissionTwiceWithReset,

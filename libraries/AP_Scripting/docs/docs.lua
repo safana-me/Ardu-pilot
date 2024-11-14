@@ -414,6 +414,16 @@ function CAN:get_device(buffer_len) end
 ---@return ScriptingCANBuffer_ud|nil
 function CAN:get_device2(buffer_len) end
 
+
+-- get latest FlexDebug message from a CAN node
+---@param bus number -- CAN bus number, 0 for first bus, 1 for 2nd
+---@param node number -- CAN node
+---@param id number -- FlexDebug message ID
+---@param last_us uint32_t_ud|integer|number -- timestamp of last received message, new message will be returned if timestamp is different
+---@return uint32_t_ud|nil -- timestamp of message (first frame arrival time)
+---@return string|nil -- up to 255 byte buffer
+function DroneCAN_get_FlexDebug(bus,node,id,last_us) end
+
 -- Auto generated binding
 
 -- desc
@@ -1941,6 +1951,10 @@ analog = {}
 -- return MCU temperature in degrees C
 ---@return number -- MCU temperature
 function analog:mcu_temperature() end
+
+-- return The current MCU voltage
+---@return number -- MCU voltage
+function analog:mcu_voltage() end
 
 -- desc
 ---@return AP_HAL__AnalogSource_ud|nil
@@ -3722,6 +3736,22 @@ AR_AttitudeControl = {}
 ---@return number -- steering slew rate
 ---@return number -- spees slew rate
 function AR_AttitudeControl:get_srate() end
+
+-- copter position controller
+poscontrol = {}
+
+-- add an offset to position controller's target position, velocity and acceleration
+---@param pos_offset_NED Vector3f_ud
+---@param vel_offset_NED Vector3f_ud
+---@param accel_offset_NED Vector3f_ud
+---@return boolean
+function poscontrol:set_posvelaccel_offset(pos_offset_NED, vel_offset_NED, accel_offset_NED) end
+
+-- get position controller's target position, velocity and acceleration offsets
+---@return Vector3f_ud|nil
+---@return Vector3f_ud|nil
+---@return Vector3f_ud|nil
+function poscontrol:get_posvelaccel_offset() end
 
 -- desc
 AR_PosControl = {}

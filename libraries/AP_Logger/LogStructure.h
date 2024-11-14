@@ -1134,7 +1134,9 @@ struct PACKED log_VER {
 // @Description: Ardupilot version
 // @Field: TimeUS: Time since system startup
 // @Field: BT: Board type
+// @FieldValueEnum: BT: HAL_BOARD
 // @Field: BST: Board subtype
+// @FieldValueEnum: BST: HAL_BOARD_SUBTYPE
 // @Field: Maj: Major version number
 // @Field: Min: Minor version number
 // @Field: Pat: Patch number
@@ -1143,6 +1145,7 @@ struct PACKED log_VER {
 // @Field: FWS: Firmware version string
 // @Field: APJ: Board ID
 // @Field: BU: Build vehicle type
+// @FieldValueEnum: BU: APM_BUILD
 // @Field: FV: Filter version
 
 // @LoggerMessage: MOTB
@@ -1218,7 +1221,7 @@ LOG_STRUCTURE_FROM_AVOIDANCE \
       "TERR","QBLLHffHHf","TimeUS,Status,Lat,Lng,Spacing,TerrH,CHeight,Pending,Loaded,ROfs", "s-DU-mm--m", "F-GG-00--0", true }, \
 LOG_STRUCTURE_FROM_ESC_TELEM \
     { LOG_CSRV_MSG, sizeof(log_CSRV), \
-      "CSRV","QBfffBfffffB","TimeUS,Id,Pos,Force,Speed,Pow,PosCmd,V,A,MotT,PCBT,Err", "s#---%dvAOO-", "F-000000000-", true }, \
+      "CSRV","QBfffBfffffB","TimeUS,Id,Pos,Force,Speed,Pow,PosCmd,V,A,MotT,PCBT,Err", "s#---%dvAOO-", "F-000000000-", false }, \
     { LOG_PIDR_MSG, sizeof(log_PID), \
       "PIDR", PID_FMT,  PID_LABELS, PID_UNITS, PID_MULTS, true },  \
     { LOG_PIDP_MSG, sizeof(log_PID), \

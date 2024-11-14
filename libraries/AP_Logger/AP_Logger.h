@@ -28,13 +28,13 @@ enum class LogEvent : uint8_t {
     AUTO_ARMED = 15,
     LAND_COMPLETE_MAYBE = 17,
     LAND_COMPLETE = 18,
-    NOT_LANDED = 28,
     LOST_GPS = 19,
     FLIP_START = 21,
     FLIP_END = 22,
     SET_HOME = 25,
     SET_SIMPLE_ON = 26,
     SET_SIMPLE_OFF = 27,
+    NOT_LANDED = 28,
     SET_SUPERSIMPLE_ON = 29,
     AUTOTUNE_INITIALISED = 30,
     AUTOTUNE_OFF = 31,
@@ -301,7 +301,7 @@ public:
     // returns true if logging of a message should be attempted
     bool should_log(uint32_t mask) const;
 
-    bool logging_started(void);
+    bool logging_started(void) const;
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL || CONFIG_HAL_BOARD == HAL_BOARD_LINUX
     // currently only AP_Logger_File support this:

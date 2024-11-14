@@ -39,6 +39,7 @@
 
 #include "SIM_StratoBlimp.h"
 #include "SIM_Glider.h"
+#include "SIM_FlightAxis.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -86,7 +87,7 @@ const AP_Param::GroupInfo SIM::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("WIND_SPD",       9, SIM,  wind_speed,  0),
     // @Param: WIND_DIR
-    // @DisplayName: Simulated Wind direction
+    // @DisplayName: Direction simulated wind is coming from
     // @Description: Allows you to set wind direction (true deg) in sim
     // @Units: deg
     // @User: Advanced
@@ -1485,6 +1486,12 @@ const AP_Param::GroupInfo SIM::ModelParm::var_info[] = {
     // @Group: SLUP_
     // @Path: ./SIM_SlungPayload.cpp
     AP_SUBGROUPINFO(slung_payload_sim, "SLUP_", 4, SIM::ModelParm, SlungPayloadSim),
+#endif
+
+#if AP_SIM_FLIGHTAXIS_ENABLED
+    // @Group: RFL_
+    // @Path: ./SIM_FlightAxis.cpp
+    AP_SUBGROUPPTR(flightaxis_ptr, "RFL_", 5, SIM::ModelParm, FlightAxis),
 #endif
 
     AP_GROUPEND
