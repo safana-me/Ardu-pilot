@@ -1662,7 +1662,7 @@ float SIM::measure_distance_at_angle_bf(const Location &location, float angle) c
 {
     // should we populate state.rangefinder_m[...] from this?
     Vector2f vehicle_pos_cm;
-    if (!location.get_vector_xy_from_origin_NE(vehicle_pos_cm)) {
+    if (!location.get_vector_xy_from_origin_NE_cm(vehicle_pos_cm)) {
         // should probably use SITL variables...
         return 0.0f;
     }
@@ -1690,7 +1690,7 @@ float SIM::measure_distance_at_angle_bf(const Location &location, float angle) c
     Location location2 = location;
     location2.offset_bearing(wrap_180(angle + state.yawDeg), 200);
     Vector2f ray_endpos_cm;
-    if (!location2.get_vector_xy_from_origin_NE(ray_endpos_cm)) {
+    if (!location2.get_vector_xy_from_origin_NE_cm(ray_endpos_cm)) {
         // should probably use SITL variables...
         return 0.0f;
     }
@@ -1727,7 +1727,7 @@ float SIM::measure_distance_at_angle_bf(const Location &location, float angle) c
             }
 #endif
             Vector2f post_position_cm;
-            if (!post_location.get_vector_xy_from_origin_NE(post_position_cm)) {
+            if (!post_location.get_vector_xy_from_origin_NE_cm(post_position_cm)) {
                 // should probably use SITL variables...
                 return 0.0f;
             }
