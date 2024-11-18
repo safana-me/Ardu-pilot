@@ -288,10 +288,10 @@ void ModeFlowHold::run()
         break;
 
     case AltHoldModeState::Landed_Ground_Idle:
-        attitude_control->reset_yaw_target_and_rate();
         FALLTHROUGH;
 
     case AltHoldModeState::Landed_Pre_Takeoff:
+        attitude_control->reset_yaw_target_and_rate(false);
         attitude_control->reset_rate_controller_I_terms_smoothly();
         pos_control->relax_z_controller(0.0f);   // forces throttle output to decay to zero
         break;
