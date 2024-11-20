@@ -8,51 +8,50 @@
 -- and land in the direction it happened to have when the command was invoked,
 -- without regard to the wind. This script offers a way to decrease the kinetic
 -- energy in this blind landing by means of steering the drone towards the wind
--- as GLIDE is initiated, hence lowering the ground speed. The intentition is to
+-- as GLIDE is initiated, hence lowering the ground speed. The intention is to
 -- minimize impact energy at landing - foremost for any third party, but also to
--- minimize damages on the drone.
+-- minimize damage to the drone.
 
 -- Functionality and setup
 -- 1. Set SCR_ENABLE = 1
 -- 2. Put script in scripts folder, boot twice
--- 3. Two new parameters have appeared:
---    - GLIDE_WIND_ENABL (0=disable, 1=enable),
---    - GLIDE_WIND_RKP (kP for RC-override roll, recommended setting is 4). 
--- 4. Set RC_OVERRIDE_TIME to 0.3 if this does not conflict with other scripts.
--- 5. Set GLIDE_WIND_ENABL = 1, GLIDE_WIND_RKP = 2 (Start easy, increase if needed)
--- 6. Read the docs on FS: 
+-- 3. A new parameter has appeared:
+--    - GLIDE_WIND_ENABL (0=disable, 1=enable)
+-- 4. Set GLIDE_WIND_ENABL = 1
+-- 5. Read the docs on FS:
 --    https://ardupilot.org/plane/docs/apms-failsafe-function.html#failsafe-parameters-and-their-meanings
--- 7. Set FS_LONG_ACTN = 2
--- 8. Set FS_LONG_TIMEOUT as appropriate
--- 9. Set FS_GCS_ENABL = 1
--- 10. If in simulation, set SIM_WIND_SPD = 4 to get a reliable wind direction.
--- 11. Test in simulation: Fly a mission, disable heartbeats by typing 'set
---     heartbeat 0' into mavproxy/SITL, monitor what happens in the console
--- 12. Test in flight: Fly a mission, monitor estimated wind direction from GCS,
+-- 6. Set FS_LONG_ACTN = 2
+-- 7. Set FS_LONG_TIMEOUT as appropriate
+-- 8. Set FS_GCS_ENABL = 1
+-- 9. If in simulation, set SIM_WIND_SPD = 4 to get a reliable wind direction.
+-- 10. Test in simulation: Fly a mission, disable heartbeats by typing 'set
+--     heartbeat 0' into mavproxy/SITL, monitor what happens in the console. If
+--     QGC or similar GCS is used, make sure it does not send heartbeats.
+-- 11. Test in flight: Fly a mission, monitor estimated wind direction from GCS,
 --     then fail GCS link and see what happens.
--- 13. Once heading is into wind script will stop steering and not steer again
---     until state machine is reset and failsafe is triggered again. The script
---     'stops steerig' mainly to not override input from RC-roll for longer than
---     needed since it can confuse the pilot. In addition, steering in low
---     airspeeds (thr=0) increases risks of stall and it is prefereable touch
+-- 12. Once heading is into wind script will stop steering and not steer again
+--     until state machine is reset and failsafe is triggered again. Steering in low
+--     airspeeds (thr=0) increases risks of stall and it is preferable touch
 --     ground in level roll attitude. If the script parameter hdg_ok_lim is set
---     to 0, the 'stop steering' is effectively disabled and the drone will try
---     to steer into the wind during the whole failsafe procedure (not
---     recommended).
--- 14. Script will stop interfering when mode is changed from FBWA to another
---     mode.
+--     to tight or the wind estimate is not stable, the script will anyhow stop
+--     steering after override_time_lim and enter FBWA - otherwise the script
+--     would hinder the GLIDE fail safe.
+-- 13. Script will stop interfering as soon as a new goto-point is received or
+--     the flight mode is changed by the operator or the remote pilot.
 
--- During the fail safe manouverouver a warning tune is played.
+-- During the fail safe maneuver a warning tune is played.
 
 -- State machine
 -- CAN_TRIGGER 
 --   - Do: Nothing
---   - Change state: If the failsafe glide is triggered:
---     if FS_GCS_ENABL is set, chage to TRIGGERED else change to CANCELED
+--   - Change state: If the failsafe GLIDE is triggered: if FS_GCS_ENABL is set
+--     and FS_LONG_ACTN is 2, change to TRIGGERED else change to CANCELED
 --
 -- TRIGGERED
---   - Do: Steer into wind and play warning tune
---   - Change state: If flight mode is changed from FBWA, change state to CANCELED
+--   - Do: First use GUIDED mode to steer into wind, then switch to FBWA to
+--     Glide into wind. Play warning tune.
+--   - Change state: If flight mode is changed by operator/remote pilot or
+--     operator/remote pilot sends a new goto point, change state to CANCELED
 --
 -- CANCELED 
 --   - Do: Nothing
@@ -63,17 +62,17 @@
 -- cooperation with Remote.aero, with funding from Swedish AeroEDIH, in response
 -- to a need from the Swedish Sea Rescue Society (Sjöräddningssällskapet, SSRS). 
 
--- Disable diagnostics related to reading paramters to pass linter
+-- Disable diagnostics related to reading parameters to pass linter
 ---@diagnostic disable: need-check-nil
 ---@diagnostic disable: param-type-mismatch
 
 -- Tuning parameters
-local looptime = 200            -- Short looptime
+local looptime = 250            -- Short looptime
 local long_looptime = 2000      -- Long looptime, GLIDE_WIND is not enabled
-local rlim = 300                -- Absolute roll contribution limit [PWM]
 local tune_repeat_t = 1000      -- How often to play tune in glide into wind, [ms]
 local hdg_ok_lim = 15           -- Acceptable heading error in deg (when to stop steering)
 local hdg_ok_t_lim = 5000       -- Stop steering towards wind after hdg_ok_t_lim ms with error less than hdg_ok_lim
+local override_time_lim = 15000 -- Max time in GUIDED during GLIDE, after limit set FBWA independent of hdg
 
 -- GCS text levels
 local _INFO = 6
@@ -81,7 +80,7 @@ local _WARNING = 4
 
 -- Plane flight modes mapping
 local mode_FBWA = 5
-
+local mode_GUIDED = 15
 
 -- Tunes
 local _tune_glide_warn = "MFT240 L16 cdefgfgfgfg"   --  The warning tone played during GLIDE_WIND
@@ -93,17 +92,23 @@ local fs_state = nil
 local override_enable = false     -- Flag to allow RC channel loverride
 
 -- Variables
-local wind_dir_rad = nil          -- param for wind dir in rad
-local wind_dir_180 = nil          -- param for wind dir in deg
-local error = nil                 -- Control error, hdg vs wind_dir_180
-local roll = nil                  -- roll control signal contribution
-local gw_enable = nil             -- glide into wind enable flag
-local hdg = nil                   -- vehicle heading
-local wind = Vector3f()           -- wind 3Dvector
-local link_lost_for = nil         -- link loss time counter
-local last_seen = nil             -- timestamp last received heartbeat
-local tune_time_since = 0         -- Timer for last played tune
-local hdg_ok_t = 0                -- Timer
+local wind_dir_rad = nil                -- param for wind dir in rad
+local wind_dir_180 = nil                -- param for wind dir in deg
+local hdg_error = nil                   -- Heading error, hdg vs wind_dir_180
+local gw_enable = nil                   -- glide into wind enable flag
+local hdg = nil                         -- vehicle heading
+local wind = Vector3f()                 -- wind 3Dvector
+local link_lost_for = nil               -- link loss time counter
+local last_seen = nil                   -- timestamp last received heartbeat
+local tune_time_since = 0               -- Timer for last played tune
+local hdg_ok_t = 0                      -- Timer
+local expected_flight_mode = nil        -- Flight mode set by this script
+local location_here = nil               -- Current location
+local location_upwind = nil             -- Location to hold the target location
+local user_notified = false             -- Flag to keep track user being notified or not
+local failed_location_counter = 0       -- Counter for failed location requests, possible GPS denied
+local upwind_distance = 500             -- Distance to the upwind location, minimum 4x turn radius
+local override_time = 0                 -- Time since override started in ms
 
 -- Add param table
 local PARAM_TABLE_KEY = 74
@@ -114,18 +119,15 @@ assert(param:add_table(PARAM_TABLE_KEY, PARAM_TABLE_PREFIX, 30), 'could not add 
 -- Init
 -------
 
-function _init()  
+function _init()
   -- Add and init paramters
   GLIDE_WIND_ENABL = bind_add_param('ENABL', 1, 0)
-  GLIDE_WIND_RKP = bind_add_param('RKP', 2, 2)
-  
+
   -- Init parameters
   FS_GCS_ENABL = bind_param('FS_GCS_ENABL')               -- Is set to 1 if GCS lol should trigger FS after FS_LONG_TIMEOUT
   FS_LONG_TIMEOUT = bind_param('FS_LONG_TIMEOUT')         -- FS long timeout in seconds
-  RCMAP_ROLL = bind_param('RCMAP_ROLL')                   -- Shows the channel used for Roll input
   FS_LONG_ACTN = bind_param('FS_LONG_ACTN')               -- Is set to 2 for Glide
 
-  
   send_to_gcs(_INFO, 'LUA: FS_LONG_TIMEOUT timeout: ' .. FS_LONG_TIMEOUT:get() .. 's')
 
   -- Test paramter
@@ -137,9 +139,6 @@ function _init()
     send_to_gcs(_INFO, 'LUA: GLIDE_WIND_ENABL: ' .. gw_enable)
   end
 
-  -- Get the rc channel to override 
-  RC_ROLL = rc:get_channel(RCMAP_ROLL:get())
-  
   -- Init last_seen.
   last_seen = gcs:last_seen()
 
@@ -147,12 +146,9 @@ function _init()
   -- new heartbeat. This is to properly init the state machine.
   link_lost_for = FS_LONG_TIMEOUT:get() * 1000
 
-  -- If GLIDE_WIND_ENABL, but other required setting missing, warning
-  local fs_long_actn = FS_LONG_ACTN:get()
-  
-  -- Check if glide_wind is not enabled or if fs_long_actn is not glide
-  if gw_enable == 1 and fs_long_actn ~= 2 then
-    send_to_gcs(_WARNING, 'GLIDE_WIND_ENABL is set, but FS_LONG_ACTN is not 2.')
+  -- Warn if GLIDE_WIND_ENABL is set and FS_LONG_ACTN is not GLIDE
+  if gw_enable == 1 and FS_LONG_ACTN:get() ~= 2 then
+    send_to_gcs(_WARNING, 'GLIDE_WIND_ENABL is set, but FS_LONG_ACTN is not GLIDE.')
   end
 
   -- Init fs_state machine to CANCELED. A heartbeat is required to set the state
@@ -162,6 +158,7 @@ function _init()
   -- All set, go to update
   return update(), long_looptime
 end
+
 
 ------------
 -- Main loop
@@ -174,9 +171,8 @@ function update()
     send_to_gcs(_INFO, 'LUA: GLIDE_WIND_ENABL: ' .. gw_enable)
     -- If GLIDE_WIND_ENABL was enabled, warn if not FS_LONG_ACTN is set accordingly
     if gw_enable == 1 then
-      local fs_long_actn = FS_LONG_ACTN:get()
-      if fs_long_actn ~=2 then
-        send_to_gcs(_WARNING, 'GLIDE_WIND_ENABL is set, but FS_LONG_ACTN is not 2.')
+      if FS_LONG_ACTN:get() ~=2 then
+        send_to_gcs(_WARNING, 'GLIDE_WIND_ENABL is set, but FS_LONG_ACTN is not GLIDE.')
       end
     end
   end
@@ -201,13 +197,16 @@ function update()
   if fs_state == 'CAN_TRIGGER' then
     if link_lost_for > FS_LONG_TIMEOUT:get() * 1000 then
       -- Double check that FS_GCS_ENABL is set
-      if FS_GCS_ENABL:get() == 1 then
+      if FS_GCS_ENABL:get() == 1 and FS_LONG_ACTN:get() == 2 then
         fs_state = "TRIGGERED"
         -- Reset some variables
-        roll = 0
         hdg_ok_t = 0
+        user_notified = false
         override_enable = true
-        send_to_gcs(_INFO, 'LUA: Glide into wind TRIGGERED')
+        override_time = 0
+        failed_location_counter = 0
+        -- Set mode to GUIDED before entering TRIGGERED state
+        set_flight_mode(mode_GUIDED, 'LUA: Glide into wind state TRIGGERED')
       else
         -- Do not trigger glide into wind, require new heart beats to get here again
         fs_state = "CANCELED"
@@ -215,15 +214,26 @@ function update()
     end
   -- State TRIGGERED
   elseif fs_state == "TRIGGERED" then
-    if vehicle:get_mode() ~= mode_FBWA then
+    -- Check for flight mode changes from outside script
+    if vehicle:get_mode() ~= expected_flight_mode then
       fs_state = "CANCELED"
-      send_to_gcs(_INFO, 'LUA: Glide into wind CANCELED')
+      send_to_gcs(_INFO, 'LUA: Glide into wind state CANCELED: flight mode change')
     end
+
+    -- In GUIDED, check for target location changes from outside script (operator)
+    if vehicle:get_mode() == mode_GUIDED then
+      if not locations_are_equal(vehicle:get_target_location(), location_upwind) then
+        fs_state = "CANCELED"
+        send_to_gcs(_INFO, 'LUA: Glide into wind state CANCELED: new goto-point')
+      end
+    end
+
   -- State CANCELED
   elseif fs_state == "CANCELED" then
+    -- Await link is not lost
     if link_lost_for < FS_LONG_TIMEOUT:get() * 1000 then
       fs_state = "CAN_TRIGGER"
-      send_to_gcs(_INFO, 'LUA: Glide into wind CAN_TRIGGER')
+      send_to_gcs(_INFO, 'LUA: Glide into wind state CAN_TRIGGER')
     end
   end
 
@@ -231,32 +241,19 @@ function update()
   if fs_state == "TRIGGERED" then
     -- Get the heading angle
     hdg = math.floor(math.deg(ahrs:get_yaw()))
+
     -- Get wind direction. Function wind_estimate returns x and y for direction wind blows in, add pi to get true wind dir
     wind = ahrs:wind_estimate()
     wind_dir_rad = math.atan(wind:y(), wind:x())+math.pi
     wind_dir_180 = math.floor(wrap_180(math.deg(wind_dir_rad)))
-
-    -- P-regulator, calc error choose closes way - right or left.
-    error = wrap_180(wind_dir_180 - hdg)
-    
-    -- Multiply with kP and cast to int
-    roll = math.floor(error*GLIDE_WIND_RKP:get())
-    
-    -- Limit output
-    if roll > rlim then
-      roll = rlim
-    elseif roll < -rlim then
-      roll = -rlim
-    end
+    hdg_error = wrap_180(wind_dir_180 - hdg)
 
     -- Check if we are close to target heading
-    if math.abs(error) < hdg_ok_lim then
-      -- If we have been close to target heading for hdg_ok_t_lim, stop overriding
-      if hdg_ok_t > hdg_ok_t_lim then
-        -- Reset roll input, send text to gcs
+    if math.abs(hdg_error) < hdg_ok_lim then
+      -- If we have been close to target heading for hdg_ok_t_lim, switch back to FBWA
+      if hdg_ok_t > hdg_ok_t_lim then    
         if override_enable then
-          RC_ROLL:set_override(1500)
-          send_to_gcs(_INFO, 'LUA: Glide into wind steering complete, just GLIDE')
+          set_flight_mode(mode_FBWA,'LUA: Glide into wind steering complete, GLIDE in FBWA')
         end
         -- Do not override again until state machine has triggered again
         override_enable = false
@@ -278,11 +275,44 @@ function update()
       tune_time_since = tune_time_since + looptime
     end
 
+    -- If not steered into wind yet, update goto point into wind
     if override_enable then
-      RC_ROLL:set_override(1500+roll)  -- Is active for RC_OVERRIDE_TIME (default 3s)
+      -- Check override time, if above limit, switch back to FBWA
+      override_time = override_time + looptime
+      if override_time > override_time_lim then
+        set_flight_mode(mode_FBWA, "LUA: Glide into wind override time out, GLIDE in current heading")
+        override_enable = false
+      end
+      -- Get current position and handle if not valid
+      location_here = ahrs:get_location()
+      if location_here == nil then
+        -- In case we cannot get location for some time we must give up and continue with GLIDE
+        failed_location_counter = failed_location_counter + 1
+        if failed_location_counter > 5 then
+          set_flight_mode(mode_FBWA, "LUA: Glide failed to get location, GLIDE in current heading")
+          override_enable = false
+          return update, looptime
+        end
+        gcs:send_text(_WARNING, "LUA: Glide failed to get location")
+        return update, looptime
+      end
+      -- Calc upwind position, copy and modify location_here
+      location_upwind = location_here:copy()
+      location_upwind:offset_bearing(wind_dir_180, upwind_distance)
+
+      -- Set location_upwind as GUIDED target
+      if vehicle:set_target_location(location_upwind) then
+        if not user_notified then
+          send_to_gcs(_INFO, "LUA: Guided target set " .. upwind_distance .. "m away at bearing " .. wind_dir_180)
+          -- Just notify once
+          user_notified = true
+        end
+      else
+        -- Most likely we are not in GUIDED anymore (operator changed mode), state machine will handle this in next loop.
+        gcs:send_text(_WARNING, "LUA: Glide failed to set upwind target")
+      end
     end
   end
-
   return update, looptime
 end
 
@@ -291,6 +321,39 @@ end
 -- Helper functions
 -------------------
 
+-- Set mode and wait for mode change
+function set_flight_mode(mode, message)
+  expected_flight_mode = mode
+  vehicle:set_mode(expected_flight_mode)
+  return wait_for_mode_change(mode, message, 0)
+end
+
+-- Wait for mode change
+function wait_for_mode_change(mode, message, attempt)
+  -- If mode change does not go through after 10 attempts, give up
+  if attempt > 10 then
+    send_to_gcs(_WARNING, 'LUA: Glide into wind mode change failed.')
+    return update, looptime
+  -- If mode change does not go through, wait and try again
+  elseif vehicle:get_mode() ~= mode then
+    return wait_for_mode_change(mode, message, attempt + 1), 5
+  -- Mode change has gone through
+  else
+    send_to_gcs(_INFO, message)
+    return update, looptime
+  end
+end
+
+-- Function to compare two Location objects
+function locations_are_equal(loc1, loc2)
+  -- If either location is nil, they are not equal  
+  if not loc1 or not loc2 then
+      return false
+  end
+  -- Compare latitude and longitude, return bool
+  return loc1:lat() == loc2:lat() and loc1:lng() == loc2:lng()
+end
+
 -- bind a parameter to a variable
 function bind_param(name)
   local p = Parameter()
@@ -298,7 +361,7 @@ function bind_param(name)
   return p
 end
 
--- add a parameter and bind it to a variable
+-- Add a parameter and bind it to a variable
 function bind_add_param(name, idx, default_value)
   assert(param:add_param(PARAM_TABLE_KEY, idx, name, default_value), string.format('could not add param %s', name))
   return bind_param(PARAM_TABLE_PREFIX .. name)
