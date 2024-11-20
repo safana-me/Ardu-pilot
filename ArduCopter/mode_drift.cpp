@@ -106,7 +106,9 @@ void ModeDrift::run()
         }
         break;
 
+    case AP_Motors::SpoolState::SPOOLING_UP:
     case AP_Motors::SpoolState::THROTTLE_UNLIMITED:
+    case AP_Motors::SpoolState::SPOOLING_DOWN:
         // clear landing flag above zero throttle
         if (!copter.is_tradheli()) {
             if (!motors->limit.throttle_lower) {
@@ -118,11 +120,6 @@ void ModeDrift::run()
                 attitude_control->reset_rate_controller_I_terms_smoothly();
             }
         }
-        break;
-
-    case AP_Motors::SpoolState::SPOOLING_UP:
-    case AP_Motors::SpoolState::SPOOLING_DOWN:
-        // do nothing
         break;
     }
 
