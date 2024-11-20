@@ -142,7 +142,7 @@ public:
     };
 
     // use leaking integrator management scheme
-    bool using_leaky_integrator() const { return heli_option(HeliOption::USE_LEAKY_I); }
+    bool using_leaky_integrator() const override { return heli_option(HeliOption::USE_LEAKY_I); }
 
     // Run arming checks
     bool arming_checks(size_t buflen, char *buffer) const override;
