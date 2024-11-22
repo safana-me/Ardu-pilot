@@ -210,6 +210,8 @@ $ ros2 service list
 /ap/arm_motors
 /ap/mode_switch
 /ap/prearm_check
+/ap/rally_get
+/ap/rally_set
 ---
 ```
 
@@ -236,6 +238,8 @@ $ ros2 service list -t
 /ap/arm_motors [ardupilot_msgs/srv/ArmMotors]
 /ap/mode_switch [ardupilot_msgs/srv/ModeSwitch]
 /ap/prearm_check [std_srvs/srv/Trigger]
+/ap/rally_get [ardupilot_msgs/srv/RallyGet]
+/ap/rally_set [ardupilot_msgs/srv/RallySet]
 ```
 
 Call the arm motors service:
@@ -271,6 +275,51 @@ or
 
 std_srvs.srv.Trigger_Response(success=True, message='Vehicle is Armable')
 ```
+
+Call the prearm check service:
+
+```bash
+$ ros2 service call /ap/prearm_check std_srvs/srv/Trigger
+requester: making request: std_srvs.srv.Trigger_Request()
+
+response:
+std_srvs.srv.Trigger_Response(success=False, message='Vehicle is Not Armable')
+
+or
+
+std_srvs.srv.Trigger_Response(success=True, message='Vehicle is Armable')
+```
+
+Clear the Rally Points list (the provided Point will be ignored):
+
+```bash
+ros2 service call /ap/rally_set ardupilot_msgs/srv/RallySet "{clear: true}"
+requester: making request: ardupilot_msgs.srv.RallySet_Request(rally=ardupilot_msgs.msg.Rally(point=geographic_msgs.msg.GeoPoint(latitude=0.0, longitude=0.0, altitude=0.0), break_altitude=0.0, land_dir=0.0, flag_favorable_winds=False, flag_do_auto_land=False, altitude_frame=0), clear=True)
+
+response:
+ardupilot_msgs.srv.RallySet_Response(success=True, size=0)
+```
+
+Append a Rally Point:
+
+```bash
+ros2 service call /ap/rally_set ardupilot_msgs/srv/RallySet "{rally: {point: {latitude: -35, longitude: 151, altitude: 400}}}"
+requester: making request: ardupilot_msgs.srv.RallySet_Request(rally=ardupilot_msgs.msg.Rally(point=geographic_msgs.msg.GeoPoint(latitude=-35.0, longitude=151.0, altitude=400.0), break_altitude=0.0, land_dir=0.0, flag_favorable_winds=False, flag_do_auto_land=False, altitude_frame=0), clear=False)
+
+response:
+ardupilot_msgs.srv.RallySet_Response(success=True, size=1)
+```
+
+Get a specific Rally Point:
+
+```bash
+ros2 service call /ap/rally_get ardupilot_msgs/srv/RallyGet "index: 0"
+requester: making request: ardupilot_msgs.srv.RallyGet_Request(index=0)
+
+response:
+ardupilot_msgs.srv.RallyGet_Response(success=True, rally=ardupilot_msgs.msg.Rally(point=geographic_msgs.msg.GeoPoint(latitude=-35.0, longitude=151.0, altitude=400.0), break_altitude=0.0, land_dir=0.0, flag_favorable_winds=False, flag_do_auto_land=False, altitude_frame=0))
+```
+
 
 ## Commanding using ROS 2 Topics
 
