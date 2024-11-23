@@ -224,9 +224,14 @@ void AP_BattMonitor_INA3221::AddressDriver::register_timer(void)
 
 void AP_BattMonitor_INA3221::AddressDriver::timer(void)
 {
+    bool healthy = true;
+
     if (channel_mask != dev_channel_mask) {
-        write_config(); // update enabled channels
-        return; // data is now out of date, read it next time
+        if (write_config()) { // update enabled channels
+            return; // data is now out of date, read it next time
+        }
+        // continue on to reading if update failed so health gets cleared
+        healthy = false;
     }
 
     for (uint8_t i=1; i<=3; i++) {
@@ -239,11 +244,13 @@ void AP_BattMonitor_INA3221::AddressDriver::timer(void)
 
         uint16_t shunt_voltage;
         if (!read_register(reg_shunt, shunt_voltage)) {
-            return;
+            healthy = false;
+            shunt_voltage = 0;
         }
         uint16_t bus_voltage;
         if (!read_register(reg_bus, bus_voltage)) {
-            return;
+            healthy = false;
+            bus_voltage = 0;
         }
 
         // transfer readings to front end:
@@ -252,6 +259,7 @@ void AP_BattMonitor_INA3221::AddressDriver::timer(void)
                 continue;
             }
             WITH_SEMAPHORE(state->sem);
+            state->state->healthy = healthy;
             state->state->voltage = bus_voltage/32768.0 * 26;
             state->state->current_amps = shunt_voltage * 0.56f;
             state->state->last_time_micros = AP_HAL::micros();
@@ -261,11 +269,7 @@ void AP_BattMonitor_INA3221::AddressDriver::timer(void)
 
 void AP_BattMonitor_INA3221::read()
 {
-    static uint32_t last_print;
-    if (AP_HAL::millis() - last_print > 5000) {
-        last_print = AP_HAL::millis();
-        gcs().send_text(MAV_SEVERITY_INFO, "%u: voltage:%f current:%f", (unsigned)_state.last_time_micros, _state.voltage, _state.current_amps);
-    }
+    // nothing to do, state already transferred by timer function
 }
 
 #endif  // AP_BATTERY_INA3221_ENABLED
