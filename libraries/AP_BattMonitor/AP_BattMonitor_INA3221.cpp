@@ -32,6 +32,36 @@
 #define HAL_BATTMON_INA3221_SHUNT_OHMS 0.001
 #endif
 
+#define HAL_BATTMON_INA3221_CONV_TIME_140US 0b000
+#define HAL_BATTMON_INA3221_CONV_TIME_204US 0b001
+#define HAL_BATTMON_INA3221_CONV_TIME_332US 0b010
+#define HAL_BATTMON_INA3221_CONV_TIME_588US 0b011
+#define HAL_BATTMON_INA3221_CONV_TIME_1100US 0b100
+#define HAL_BATTMON_INA3221_CONV_TIME_2116US 0b101
+#define HAL_BATTMON_INA3221_CONV_TIME_4156US 0b110
+#define HAL_BATTMON_INA3221_CONV_TIME_8244US 0b111
+
+#define HAL_BATTMON_INA3221_AVG_MODE_1 0b000
+#define HAL_BATTMON_INA3221_AVG_MODE_4 0b001
+#define HAL_BATTMON_INA3221_AVG_MODE_16 0b010
+#define HAL_BATTMON_INA3221_AVG_MODE_64 0b011
+#define HAL_BATTMON_INA3221_AVG_MODE_128 0b100
+#define HAL_BATTMON_INA3221_AVG_MODE_256 0b101
+#define HAL_BATTMON_INA3221_AVG_MODE_512 0b110
+#define HAL_BATTMON_INA3221_AVG_MODE_1024 0b111
+
+#ifndef HAL_BATTMON_INA3221_SHUNT_CONV_TIME_SEL
+#define HAL_BATTMON_INA3221_SHUNT_CONV_TIME_SEL HAL_BATTMON_INA3221_CONV_TIME_8244US
+#endif
+
+#ifndef HAL_BATTMON_INA3221_BUS_CONV_TIME_SEL
+#define HAL_BATTMON_INA3221_BUS_CONV_TIME_SEL HAL_BATTMON_INA3221_CONV_TIME_8244US
+#endif
+
+#ifndef HAL_BATTMON_INA3221_AVG_MODE_SEL
+#define HAL_BATTMON_INA3221_AVG_MODE_SEL HAL_BATTMON_INA3221_AVG_MODE_1024
+#endif
+
 struct AP_BattMonitor_INA3221::AddressDriver AP_BattMonitor_INA3221::address_driver[HAL_BATTMON_INA3221_MAX_DEVICES];
 uint8_t AP_BattMonitor_INA3221::address_driver_count;
 
@@ -115,9 +145,9 @@ bool AP_BattMonitor_INA3221::AddressDriver::write_config(void)
         uint16_t word;
     } configuration {
         0b111, // continuous operation
-        0b111, // 8ms conversion time for shunt voltage
-        0b111, // 8ms conversion time for bus voltage
-        0b111, // 1024 samples / average
+        HAL_BATTMON_INA3221_SHUNT_CONV_TIME_SEL,
+        HAL_BATTMON_INA3221_BUS_CONV_TIME_SEL,
+        HAL_BATTMON_INA3221_AVG_MODE_SEL,
         // dynamically enable channels to not waste time converting unused data
         (channel_mask & (1 << 1)) != 0, // enable ch1?
         (channel_mask & (1 << 2)) != 0, // enable ch2?
