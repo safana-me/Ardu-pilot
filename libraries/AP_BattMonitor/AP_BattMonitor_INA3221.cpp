@@ -93,6 +93,43 @@ bool AP_BattMonitor_INA3221::AddressDriver::write_register(uint8_t addr, uint16_
 #define REG_CONFIGURATION 0x00
 #define REG_MANUFACTURER_ID 0xFE
 #define REG_DIE_ID 0xFF
+
+bool AP_BattMonitor_INA3221::AddressDriver::write_config(void)
+{
+    // update device configuration
+    union {
+        struct PACKED {
+            uint16_t mode : 3;
+            uint16_t shunt_voltage_conversiontime : 3;
+            uint16_t bus_voltage_conversiontime : 3;
+            uint16_t averaging_mode : 3;
+            uint16_t ch1_enable : 1;
+            uint16_t ch2_enable : 1;
+            uint16_t ch3_enable : 1;
+            uint16_t reset : 1;
+        } bits;
+        uint16_t word;
+    } configuration {
+        0b111, // continuous operation
+        0b111, // 8ms conversion time for shunt voltage
+        0b111, // 8ms conversion time for bus voltage
+        0b111, // 1024 samples / average
+        // dynamically enable channels to not waste time converting unused data
+        (channel_mask & (1 << 1)) != 0, // enable ch1?
+        (channel_mask & (1 << 2)) != 0, // enable ch2?
+        (channel_mask & (1 << 3)) != 0, // enable ch3?
+        0b0,  // don't reset...
+    };
+
+    if (!write_register(REG_CONFIGURATION, configuration.word)) {
+        return false;
+    }
+
+    dev_channel_mask = channel_mask; // what's actually in the device now
+
+    return true;
+}
+
 void AP_BattMonitor_INA3221::init()
 {
     debug("INA3221: probe @0x%02x on bus %u", i2c_address.get(), i2c_bus.get());
@@ -157,31 +194,8 @@ void AP_BattMonitor_INA3221::init()
         return;
     }
 
-    // reset the device:
-    union {
-        struct PACKED {
-            uint16_t mode : 3;
-            uint16_t shunt_voltage_conversiontime : 3;
-            uint16_t bus_voltage_conversiontime : 3;
-            uint16_t averaging_mode : 3;
-            uint16_t ch1_enable : 1;
-            uint16_t ch2_enable : 1;
-            uint16_t ch3_enable : 1;
-            uint16_t reset : 1;
-        } bits;
-        uint16_t word;
-    } configuration {
-        0b111, // continuous operation
-            0b111, // 8ms conversion time for shunt voltage
-            0b111, // 8ms conversion time for bus voltage
-            0b111, // 1024 samples / average
-            0b1,  // enable ch1
-            0b1,  // enable ch2
-            0b1,  // enable ch3
-            0b0    // don't reset...
-            };
-
-    if (!d->write_register(REG_CONFIGURATION, configuration.word)) {
+    d->channel_mask = (1U << (uint8_t(channel.get())));
+    if (!d->write_config()) {
         return;
     }
 
@@ -193,7 +207,6 @@ void AP_BattMonitor_INA3221::init()
     state->next = d->statelist;
     state->state = &_state;
     d->statelist = state;
-    d->channel_mask |= (1U << (uint8_t(channel.get())));
 
     debug("Found INA3221 @0x%02x on bus %u", i2c_address.get(), i2c_bus.get());
 
@@ -211,6 +224,11 @@ void AP_BattMonitor_INA3221::AddressDriver::register_timer(void)
 
 void AP_BattMonitor_INA3221::AddressDriver::timer(void)
 {
+    if (channel_mask != dev_channel_mask) {
+        write_config(); // update enabled channels
+        return; // data is now out of date, read it next time
+    }
+
     for (uint8_t i=1; i<=3; i++) {
         if ((channel_mask & (1U<<i)) == 0) {
             continue;

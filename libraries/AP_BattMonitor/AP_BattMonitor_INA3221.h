@@ -77,6 +77,7 @@ private:
     static struct AddressDriver {
         bool read_register(uint8_t addr, uint16_t &ret);
         bool write_register(uint8_t addr, uint16_t val);
+        bool write_config(void);
         void timer(void);
         void register_timer();
 
@@ -84,6 +85,7 @@ private:
         uint8_t bus;
         uint8_t address;
         uint8_t channel_mask;
+        uint8_t dev_channel_mask;
 
         struct StateList {
             struct StateList *next;
