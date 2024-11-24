@@ -976,7 +976,7 @@ bool AP_AHRS::_EAS(float &airspeed_ret, AirspeedEstimateType &airspeed_estimate_
 #if AP_AHRS_SIM_ENABLED
     case EKFType::SIM:
         airspeed_estimate_type = AirspeedEstimateType::SIM;
-        return sim.airspeed_estimate(airspeed_ret);
+        return sim.EAS(airspeed_ret);
 #endif
 
 #if HAL_NAVEKF2_AVAILABLE
