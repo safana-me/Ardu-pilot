@@ -81,6 +81,9 @@ void ModeSport::run()
         break;
 
     case AltHoldModeState::Landed_Ground_Idle:
+        if (motors->using_hdg_error_correction()) {
+            attitude_control->reset_yaw_target_and_rate(false);
+        }
         FALLTHROUGH;
 
     case AltHoldModeState::Landed_Pre_Takeoff:

@@ -116,7 +116,9 @@ void ModeDrift::run()
             }
         } else {
             if (copter.ap.land_complete && !motors->using_leaky_integrator()) {
-                attitude_control->reset_target_and_rate(false);
+                if (!motors->using_hdg_error_correction()) {
+                    attitude_control->reset_yaw_target_and_rate(false);
+                }
                 attitude_control->reset_rate_controller_I_terms_smoothly();
             }
         }
