@@ -100,6 +100,12 @@ SITL::SerialDevice *SITL_State_Common::create_serial_sim(const char *name, const
         }
         lanbao = NEW_NOTHROW SITL::RF_Lanbao();
         return lanbao;
+    } else if (streq(name, "genericcsonar_serial")) {
+        if (generic_c_sonar_serial != nullptr) {
+            AP_HAL::panic("Only one genericcsonar_serial at a time");
+        }
+        generic_c_sonar_serial = NEW_NOTHROW SITL::RF_GenericCSonar_Serial();
+        return generic_c_sonar_serial;
     } else if (streq(name, "blping")) {
         if (blping != nullptr) {
             AP_HAL::panic("Only one blping at a time");
@@ -377,6 +383,9 @@ void SITL_State_Common::sim_update(void)
     }
     if (lanbao != nullptr) {
         lanbao->update(sitl_model->rangefinder_range());
+    }
+    if (generic_c_sonar_serial != nullptr) {
+        generic_c_sonar_serial->update(sitl_model->rangefinder_range());
     }
     if (blping != nullptr) {
         blping->update(sitl_model->rangefinder_range());
