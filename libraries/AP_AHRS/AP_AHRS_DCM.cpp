@@ -727,7 +727,7 @@ AP_AHRS_DCM::drift_correction(float deltat)
         float TAS = _last_TAS;
 #if AP_AIRSPEED_ENABLED
         if (airspeed_sensor_enabled()) {
-            TAS = AP::airspeed()->get_airspeed();
+            TAS = AP::airspeed()->get_airspeed() * get_EAS2TAS();
         }
 #endif
 
