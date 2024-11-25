@@ -119,12 +119,60 @@ int32_t AP_L1_Control::target_bearing_cd(void) const
 }
 
 /*
-  this is the turn distance assuming a 90 degree turn
+  This is the turn distance assuming a 90 degree turn
  */
 float AP_L1_Control::turn_distance(float wp_radius) const
 {
-    wp_radius *= sq(_ahrs.get_EAS2TAS());
-    return MIN(wp_radius, _L1_dist);
+    // True airspeed correction
+    const float eas2tas_sq = sq(_ahrs.get_EAS2TAS());
+
+    // Distance scaled to true airspeed
+    float turn_distance_m = wp_radius * eas2tas_sq;
+
+    // The L1-distance can be closer then the waypoint radius because we are off-track.
+    turn_distance_m = MIN(turn_distance_m, _L1_dist);
+
+    /** Forward correct the crosstrack error caused by the lateral shift by the wind during the turn.
+     *  Simplified for a rectangle turn, the head-wind (or tail-wind) before the turn is the crosswind after the turn.
+     *  Turn early on tail-wind, because it works against the turn and this may exceed the plane's turn capability.
+     *
+     *  An overly simplified example:
+     *      wp_radius = 50m
+     *      tail_wind_mps = 10m/s
+     *      arc_distance_m = 0.5*3.14*50 = 78,5m
+     *      air_speed_mps = 10m/s
+     *      turn_duration_s = 7,85s
+     *      lateral_shift_m = 78,5m
+     *      turn_distance_m = 50m + 78,5m = 128,5m
+     *
+     *  Note: Head-wind condition is not corrected because is creates the mathmatical problem of possibly negative turn distances.
+     */
+
+    const float tail_wind_mps = -(_ahrs.head_wind());
+
+    float air_speed_mps = 0.0f;
+
+    // Only apply correction is airspeed is available and for tail-wind condition.
+    if ((tail_wind_mps > 0.0f) && (_ahrs.airspeed_estimate_true(air_speed_mps)))
+    {
+        /** The flight distance on the arc segment.
+         *  By assuming an ideal rectangle turn that starts when the distance to the waypoint equals wp_radius,
+         *  the turn radius also equals wp_radius.
+         *  The distance therefore is a quarter of the circumfence (2*PI*R)
+         */
+        const float arc_distance_m = 0.5f * M_PI * wp_radius;
+
+        // the time needed for the turn
+        const float turn_duration_s = arc_distance_m / air_speed_mps;
+
+        // the resulting lateral shift during the turn
+        const float lateral_shift_m = turn_duration_s * tail_wind_mps;
+
+        // the resulting turn distance
+        turn_distance_m += lateral_shift_m;
+    }
+
+    return turn_distance_m;
 }
 
 /*
