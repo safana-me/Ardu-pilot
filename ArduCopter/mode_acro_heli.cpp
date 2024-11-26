@@ -54,7 +54,7 @@ void ModeAcro_Heli::run()
         // THEN set target heading to current and reset the integrator
         // Otherwise motors could be at ground idle for practice autorotation
         if ((motors->init_targets_on_arming() && motors->using_leaky_integrator()) || (copter.ap.land_complete && !motors->using_leaky_integrator())) {
-            attitude_control->reset_yaw_target_and_rate(false);
+            attitude_control->reset_target_and_rate(false);
             attitude_control->reset_rate_controller_I_terms_smoothly();
         }
         break;
