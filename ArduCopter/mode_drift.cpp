@@ -91,7 +91,7 @@ void ModeDrift::run()
     switch (motors->get_spool_state()) {
     case AP_Motors::SpoolState::SHUT_DOWN:
         // Motors Stopped
-        attitude_control->reset_yaw_target_and_rate();
+        attitude_control->reset_yaw_target_and_rate(true);
         attitude_control->reset_rate_controller_I_terms();
         break;
 
@@ -100,6 +100,7 @@ void ModeDrift::run()
         // OR initializing targets on arming and using leaky integrator, 
         // THEN set target heading to current and reset the integrator
         // Otherwise motors could be at ground idle for practice autorotation
+        // If a multirotor then it is always done
         if (!copter.is_tradheli() || (motors->init_targets_on_arming() && motors->using_leaky_integrator()) || (copter.ap.land_complete && !motors->using_leaky_integrator())) {
             attitude_control->reset_yaw_target_and_rate(false);
             attitude_control->reset_rate_controller_I_terms_smoothly();
