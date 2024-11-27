@@ -1,6 +1,22 @@
 /*
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/*
   ArduPilot filesystem interface for systems using the LittleFS filesystem in
   flash memory
+
+  littlefs integration by Tamas Nepusz <ntamas@gmail.com>
 */
 #include "AP_Filesystem_config.h"
 
@@ -127,7 +143,7 @@ int32_t AP_Filesystem_FlashMemory_LittleFS::write(int fd, const void *buf, uint3
     if (fp == nullptr) {
         return -1;
     }
-    
+
     written = lfs_file_write(&fs, fp, buf, count);
     if (written < 0) {
         errno = errno_from_lfs_error(written);
@@ -175,14 +191,14 @@ int AP_Filesystem_FlashMemory_LittleFS::stat(const char *name, struct stat *buf)
 
     WITH_SEMAPHORE(fs_sem);
     ENSURE_MOUNTED();
-    
+
     LFS_CHECK(lfs_stat(&fs, name, &info));
 
     memset(buf, 0, sizeof(*buf));
     buf->st_mode = (info.type == LFS_TYPE_DIR ? S_IFREG : S_IFDIR) | 0666;
     buf->st_nlink = 1;
     buf->st_size = info.size;
-    buf->st_blksize = fs_cfg.read_size;    
+    buf->st_blksize = fs_cfg.read_size;
     buf->st_blocks = (info.size >> 9) + ((info.size & 0x1FF) > 0 ? 1 : 0);
 
     return 0;
@@ -431,8 +447,8 @@ void AP_Filesystem_FlashMemory_LittleFS::mark_dead()
 #define JEDEC_STATUS_SEC             0x40
 #define JEDEC_STATUS_SRP0            0x80
 
-#define W25N01G_STATUS_EFAIL         0x04
-#define W25N01G_STATUS_PFAIL         0x08
+#define W25NXX_STATUS_EFAIL         0x04
+#define W25NXX_STATUS_PFAIL         0x08
 
 
 /*
@@ -455,43 +471,41 @@ void AP_Filesystem_FlashMemory_LittleFS::mark_dead()
 #define JEDEC_ID_WINBOND_W25Q256       0xEF4019
 #define JEDEC_ID_WINBOND_W25Q128_2     0xEF7018
 #define JEDEC_ID_WINBOND_W25N01GV      0xEFAA21
+#define JEDEC_ID_WINBOND_W25N02KV      0xEFAA22
 #define JEDEC_ID_CYPRESS_S25FL128L     0x016018
 
 /* Hardware-specific constants */
 
-#define W25N01G_PROT_REG             0xA0
-#define W25N01G_CONF_REG             0xB0
-#define W25N01G_STATUS_REG           0xC0
+#define W25NXX_PROT_REG             0xA0
+#define W25NXX_CONF_REG             0xB0
+#define W25NXX_STATUS_REG           0xC0
+#define W25NXX_STATUS_EFAIL          0x04
+#define W25NXX_STATUS_PFAIL          0x08
 
-#define W25N01G_CONFIG_ECC_ENABLE         (1 << 4)
-#define W25N01G_CONFIG_BUFFER_READ_MODE   (1 << 3)
+#define W25N01G_NUM_BLOCKS                  1024
+#define W25N02K_NUM_BLOCKS                  2048
 
-#define W25N01G_TIMEOUT_PAGE_READ_US        60   // tREmax = 60us (ECC enabled)
-#define W25N01G_TIMEOUT_PAGE_PROGRAM_US     700  // tPPmax = 700us
-#define W25N01G_TIMEOUT_BLOCK_ERASE_MS      10   // tBEmax = 10ms
-#define W25N01G_TIMEOUT_RESET_MS            500  // tRSTmax = 500ms
+#define W25NXX_CONFIG_ECC_ENABLE         (1 << 4)
+#define W25NXX_CONFIG_BUFFER_READ_MODE   (1 << 3)
 
-uint8_t AP_Filesystem_FlashMemory_LittleFS::read_status_register()
-{
-    WITH_SEMAPHORE(dev_sem);
-    uint8_t cmd[2] = { JEDEC_READ_STATUS, 0 };
-    uint8_t status;
-    uint8_t length = 1;
-
-    //if (jedec_id == JEDEC_ID_WINBOND_W25N01GV) {
-        length = 2;
-        cmd[1] = W25N01G_STATUS_REG;
-    //}
-
-    dev->transfer(cmd, length, &status, 1);
-
-    return status;
-}
+#define W25NXX_TIMEOUT_PAGE_READ_US        60   // tREmax = 60us (ECC enabled)
+#define W25NXX_TIMEOUT_PAGE_PROGRAM_US     700  // tPPmax = 700us
+#define W25NXX_TIMEOUT_BLOCK_ERASE_MS      10   // tBEmax = 10ms
+#define W25NXX_TIMEOUT_RESET_MS            500  // tRSTmax = 500ms
 
 bool AP_Filesystem_FlashMemory_LittleFS::is_busy()
 {
-    // TODO(ntamas): slightly different for W25N01GV?
-    return (read_status_register() & (JEDEC_STATUS_BUSY | W25N01G_STATUS_PFAIL | W25N01G_STATUS_EFAIL)) != 0;
+    WITH_SEMAPHORE(dev_sem);
+    uint8_t status;
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+    uint8_t cmd[2] { JEDEC_READ_STATUS, W25NXX_STATUS_REG };
+    dev->transfer(cmd, 2, &status, 1);
+    return (status & (JEDEC_STATUS_BUSY | W25NXX_STATUS_PFAIL | W25NXX_STATUS_EFAIL)) != 0;
+#else
+    uint8_t cmd = JEDEC_READ_STATUS;
+    dev->transfer(&cmd, 1, &status, 1);
+    return status & (JEDEC_STATUS_BUSY | JEDEC_STATUS_SRP0) != 0;
+#endif
 }
 
 void AP_Filesystem_FlashMemory_LittleFS::send_command_addr(uint8_t command, uint32_t addr)
@@ -560,13 +574,12 @@ bool AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
     uint8_t buf[4];
     dev->transfer(&cmd, 1, buf, 4);
 
-    jedec_id = buf[0] << 16 | buf[1] << 8 | buf[2];
-    
-    // For some reason the JEDEC ID is to be found in buf[1], buf[2] and
-    // buf[3] for JEDEC_ID_WINBOND_W25N01GV
-    if (jedec_id == (JEDEC_ID_WINBOND_W25N01GV >> 8) && buf[3] == (JEDEC_ID_WINBOND_W25N01GV & 0xff)) {
-        jedec_id = JEDEC_ID_WINBOND_W25N01GV;
-    }
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+    uint32_t id = buf[1] << 16 | buf[2] << 8 | buf[3];
+
+#else
+    uint32_t id = buf[0] << 16 | buf[1] << 8 | buf[2];
+#endif
 
     // Let's specify the terminology here.
     //
@@ -575,18 +588,29 @@ bool AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
     //
     // So, for instance, if we have 4K sectors on the flash chip and we can
     // always erase a single 4K sector, the LFS block size will be 4096 bytes,
+
     // irrespectively of what the flash chip documentation refers to as a "block"
-
-    use_32bit_address = false;
-    use_page_data_read_and_write = false;
-
     /* Most flash chips are programmable in chunks of 256 bytes and erasable in
      * blocks of 4K so we start with these defaults */
     uint32_t block_count = 0;
     uint16_t page_size = 256;
     uint32_t block_size = 4096;
 
-    switch (jedec_id) {
+    switch (id) {
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+    case JEDEC_ID_WINBOND_W25N01GV:
+        /* 128M, programmable in chunks of 2048 bytes, erasable in blocks of 128K */
+        page_size = 2048;
+        block_size = 131072;
+        block_count = 1024;
+        break;
+    case JEDEC_ID_WINBOND_W25N02KV:
+        /* 256M, programmable in chunks of 2048 bytes, erasable in blocks of 128K */
+        page_size = 2048;
+        block_size = 131072;
+        block_count = 2048;
+        break;
+#else
     case JEDEC_ID_WINBOND_W25Q16:
     case JEDEC_ID_MICRON_M25P16:
         block_count = 32;   /* 128K */
@@ -616,19 +640,10 @@ bool AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
         block_count = 512;  /* 2M */
         use_32bit_address = true;
         break;
-
-    case JEDEC_ID_WINBOND_W25N01GV:
-        /* 128M, programmable in chunks of 2048 bytes, erasable in blocks of 128K */
-        page_size = 2048;
-        block_size = 131072;
-        block_count = 1024;
-        use_page_data_read_and_write = true;
-        break;
-
+#endif
     default:
         hal.scheduler->delay(2000);
-        printf("Unknown SPI Flash 0x%08x\n", jedec_id);
-        jedec_id = JEDEC_ID_UNKNOWN;
+        printf("Unknown SPI Flash 0x%08x\n", id);
         return false;
     }
 
@@ -678,7 +693,7 @@ bool AP_Filesystem_FlashMemory_LittleFS::mount_filesystem() {
         return false;
     }
 
-    if (!flashmem_init()) {
+    if (!init_flash()) {
         mark_dead();
         return false;
     }
@@ -725,7 +740,7 @@ uint32_t AP_Filesystem_FlashMemory_LittleFS::lfs_block_to_raw_flash_page_index(l
     return index * (fs_cfg.block_size / fs_cfg.read_size);
 }
 
-bool AP_Filesystem_FlashMemory_LittleFS::flashmem_enable_write()
+bool AP_Filesystem_FlashMemory_LittleFS::write_enable()
 {
     uint8_t b = JEDEC_WRITE_ENABLE;
 
@@ -739,46 +754,33 @@ bool AP_Filesystem_FlashMemory_LittleFS::flashmem_enable_write()
     }
 }
 
-bool AP_Filesystem_FlashMemory_LittleFS::flashmem_init()
+bool AP_Filesystem_FlashMemory_LittleFS::init_flash()
 {
-    switch (jedec_id) {
-        case JEDEC_ID_WINBOND_W25N01GV:
-            if (!flashmem_reset()) {
-                return false;
-            }
-
-            // disable write protection
-            write_status_register(W25N01G_PROT_REG, 0);
-
-            // enable ECC and buffer mode
-            write_status_register(W25N01G_CONF_REG, W25N01G_CONFIG_ECC_ENABLE | W25N01G_CONFIG_BUFFER_READ_MODE);
-            break;
-
-        default:
-            break;
-    }
-
-    return true;
-}
-
-bool AP_Filesystem_FlashMemory_LittleFS::flashmem_reset()
-{
-    uint8_t b = JEDEC_DEVICE_RESET;
-
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+    // reset the device
     if (!wait_until_device_is_ready()) {
         return false;
     }
-
     {
         WITH_SEMAPHORE(dev_sem);
-        if (!dev->transfer(&b, 1, nullptr, 0)) {
-            return false;
-        }
+        uint8_t b = JEDEC_DEVICE_RESET;
+        dev->transfer(&b, 1, nullptr, 0);
     }
+    hal.scheduler->delay(W25NXX_TIMEOUT_RESET_MS);
 
-    if (jedec_id == JEDEC_ID_WINBOND_W25N01GV) {
-        hal.scheduler->delay(W25N01G_TIMEOUT_RESET_MS);
+    // disable write protection
+    write_status_register(W25NXX_PROT_REG, 0);
+
+    // enable ECC and buffer mode
+    write_status_register(W25NXX_CONF_REG, W25NXX_CONFIG_ECC_ENABLE | W25NXX_CONFIG_BUFFER_READ_MODE);
+#else
+    if (use_32bit_address) {
+        WITH_SEMAPHORE(dev_sem);
+
+        const uint8_t cmd = 0xB7;
+        dev->transfer(&cmd, 1, nullptr, 0);
     }
+#endif
 
     return true;
 }
@@ -793,21 +795,19 @@ int AP_Filesystem_FlashMemory_LittleFS::_flashmem_read(
     }
 
     address = lfs_block_and_offset_to_raw_flash_address(block, off);
-
-    if (use_page_data_read_and_write) {
-        /* We need to read an entire page into an internal buffer and then read
-         * that buffer with JEDEC_READ_DATA later */
-        if (!wait_until_device_is_ready()) {
-            return LFS_ERR_IO;
-        }
-
-        {
-            WITH_SEMAPHORE(dev_sem);
-            send_command_addr(JEDEC_PAGE_DATA_READ, address / fs_cfg.read_size);
-            address %= fs_cfg.read_size;
-        }
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+    /* We need to read an entire page into an internal buffer and then read
+        * that buffer with JEDEC_READ_DATA later */
+    if (!wait_until_device_is_ready()) {
+        return LFS_ERR_IO;
     }
 
+    {
+        WITH_SEMAPHORE(dev_sem);
+        send_command_addr(JEDEC_PAGE_DATA_READ, address / fs_cfg.read_size);
+        address %= fs_cfg.read_size;
+    }
+#endif
     if (!wait_until_device_is_ready()) {
         return LFS_ERR_IO;
     }
@@ -832,46 +832,45 @@ int AP_Filesystem_FlashMemory_LittleFS::_flashmem_prog(
     if (dead) {
         return LFS_ERR_IO;
     }
-    
-    if (!wait_until_device_is_ready() || !flashmem_enable_write()) {
+
+    if (!wait_until_device_is_ready() || !write_enable()) {
         return LFS_ERR_IO;
     }
 
     address = lfs_block_and_offset_to_raw_flash_address(block, off);
-    
-    if (use_page_data_read_and_write) {
-        /* First we need to write into the data buffer at column address zero,
-         * then we need to issue PROGRAM_EXECUTE to commit the internal buffer */
-        {
-            WITH_SEMAPHORE(dev_sem);
 
-            dev->set_chip_select(true);
-            send_command_page(JEDEC_PAGE_WRITE, address % fs_cfg.prog_size);
-            dev->transfer(static_cast<const uint8_t*>(buffer), size, nullptr, 0);
-            dev->set_chip_select(false);
-        }
-
-        if (!wait_until_device_is_ready()) {
-            return LFS_ERR_IO;
-        }
-
-        {
-            WITH_SEMAPHORE(dev_sem);
-            send_command_addr(JEDEC_PROGRAM_EXECUTE, address / fs_cfg.prog_size);
-        }
-
-        if (!wait_until_device_is_ready()) {
-            return LFS_ERR_IO;
-        }
-    } else {
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+    /* First we need to write into the data buffer at column address zero,
+     * then we need to issue PROGRAM_EXECUTE to commit the internal buffer */
+    {
         WITH_SEMAPHORE(dev_sem);
 
         dev->set_chip_select(true);
-        send_command_addr(JEDEC_PAGE_WRITE, address);
+        send_command_page(JEDEC_PAGE_WRITE, address % fs_cfg.prog_size);
         dev->transfer(static_cast<const uint8_t*>(buffer), size, nullptr, 0);
         dev->set_chip_select(false);
     }
 
+    if (!wait_until_device_is_ready()) {
+        return LFS_ERR_IO;
+    }
+
+    {
+        WITH_SEMAPHORE(dev_sem);
+        send_command_addr(JEDEC_PROGRAM_EXECUTE, address / fs_cfg.prog_size);
+    }
+
+    if (!wait_until_device_is_ready()) {
+        return LFS_ERR_IO;
+    }
+#else
+    WITH_SEMAPHORE(dev_sem);
+
+    dev->set_chip_select(true);
+    send_command_addr(JEDEC_PAGE_WRITE, address);
+    dev->transfer(static_cast<const uint8_t*>(buffer), size, nullptr, 0);
+    dev->set_chip_select(false);
+#endif
     return LFS_ERR_OK;
 }
 
@@ -879,18 +878,18 @@ int AP_Filesystem_FlashMemory_LittleFS::_flashmem_erase(lfs_block_t block) {
     if (dead) {
         return LFS_ERR_IO;
     }
-    
-    if (!wait_until_device_is_ready() || !flashmem_enable_write()) {
+
+    if (!wait_until_device_is_ready() || !write_enable()) {
         return LFS_ERR_IO;
     }
 
     {
         WITH_SEMAPHORE(dev_sem);
-        if (jedec_id == JEDEC_ID_WINBOND_W25N01GV) {
-            send_command_addr(JEDEC_BLOCK_ERASE, lfs_block_to_raw_flash_page_index(block));
-        } else {
-            send_command_addr(JEDEC_SECTOR4_ERASE, lfs_block_and_offset_to_raw_flash_address(block));
-        }
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+        send_command_addr(JEDEC_BLOCK_ERASE, lfs_block_to_raw_flash_page_index(block));
+#else
+        send_command_addr(JEDEC_SECTOR4_ERASE, lfs_block_and_offset_to_raw_flash_address(block));
+#endif
     }
 
     return LFS_ERR_OK;
@@ -974,15 +973,15 @@ static int lfs_flags_from_flags(int flags)
     if (flags & O_EXCL) {
         outflags |= LFS_O_EXCL;
     }
-    
+
     if (flags & O_TRUNC) {
         outflags |= LFS_O_TRUNC;
     }
-    
+
     if (flags & O_APPEND) {
         outflags |= LFS_O_APPEND;
     }
-    
+
     return outflags;
 }
 

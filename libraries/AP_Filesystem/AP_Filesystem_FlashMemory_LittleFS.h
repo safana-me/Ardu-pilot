@@ -12,7 +12,6 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
 #include "AP_Filesystem_backend.h"
@@ -57,7 +56,7 @@ public:
     int _flashmem_prog(lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size);
     int _flashmem_erase(lfs_block_t block);
     int _flashmem_sync();
-    
+
 private:
     // JEDEC ID of the flash memory, JEDEC_ID_UNKNOWN if not known or not supported
     uint32_t jedec_id;
@@ -88,12 +87,9 @@ private:
 
     // Semaphore to protect access to the SPI device
     AP_HAL::Semaphore *dev_sem;
-    
+
     // Flag to denote that the underlying flash chip uses 32-bit addresses
     bool use_32bit_address;
-
-    // Flag to denote that we should use JEDEC Page Data Read commands on the underlying flash chip
-    bool use_page_data_read_and_write;
 
     int allocate_fd();
     int free_fd(int fd);
@@ -103,12 +99,10 @@ private:
     uint32_t lfs_block_and_offset_to_raw_flash_address(lfs_block_t block, lfs_off_t off = 0);
     uint32_t lfs_block_to_raw_flash_page_index(lfs_block_t block);
     bool find_block_size_and_count();
-    bool flashmem_init() WARN_IF_UNUSED;
-    bool flashmem_enable_write() WARN_IF_UNUSED;
-    bool flashmem_reset() WARN_IF_UNUSED;
+    bool init_flash() WARN_IF_UNUSED;
+    bool write_enable() WARN_IF_UNUSED;
     bool is_busy();
     bool mount_filesystem();
-    uint8_t read_status_register();
     void send_command_addr(uint8_t command, uint32_t addr);
     void send_command_page(uint8_t command, uint32_t page);
     bool wait_until_device_is_ready() WARN_IF_UNUSED;
