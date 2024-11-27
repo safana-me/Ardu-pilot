@@ -403,7 +403,7 @@ void FlightAxis::exchange_data(const struct sitl_input &input)
         reply = soap_request_end(0);
         if (reply == nullptr) {
             sock_error_count++;
-            if (sock_error_count >= 10000 && timestamp_sec() - last_recv_sec > 1) {
+            if (sock_error_count >= 10000 && timestamp_sec() - last_recv_sec > 3*average_frame_time_s) {
                 printf("socket timeout\n");
                 delete sock;
                 sock = nullptr;
