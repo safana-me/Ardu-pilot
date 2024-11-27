@@ -46,11 +46,9 @@ public:
 
     bool retry_mount(void) override;
     void unmount(void) override;
-
-    /*
-    // format sdcard
+    // format flash.  This is async, monitor get_format_status for progress
     bool format(void) override;
-    */
+    AP_Filesystem_Backend::FormatStatus get_format_status() const override;
 
     int _flashmem_read(lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size);
     int _flashmem_prog(lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size);
@@ -90,6 +88,7 @@ private:
 
     // Flag to denote that the underlying flash chip uses 32-bit addresses
     bool use_32bit_address;
+    FormatStatus format_status;
 
     int allocate_fd();
     int free_fd(int fd);
@@ -98,7 +97,7 @@ private:
 
     uint32_t lfs_block_and_offset_to_raw_flash_address(lfs_block_t block, lfs_off_t off = 0);
     uint32_t lfs_block_to_raw_flash_page_index(lfs_block_t block);
-    bool find_block_size_and_count();
+    uint32_t find_block_size_and_count();
     bool init_flash() WARN_IF_UNUSED;
     bool write_enable() WARN_IF_UNUSED;
     bool is_busy();
@@ -107,7 +106,7 @@ private:
     void send_command_page(uint8_t command, uint32_t page);
     bool wait_until_device_is_ready() WARN_IF_UNUSED;
     void write_status_register(uint8_t reg, uint8_t bits);
-
+    void format_handler(void);
     void mark_dead();
 };
 

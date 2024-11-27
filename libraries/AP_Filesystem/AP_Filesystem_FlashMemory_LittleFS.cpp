@@ -24,6 +24,7 @@
 
 #include "AP_Filesystem.h"
 #include "AP_Filesystem_FlashMemory_LittleFS.h"
+#include <GCS_MAVLink/GCS.h>
 
 #include "lfs.h"
 
@@ -504,7 +505,7 @@ bool AP_Filesystem_FlashMemory_LittleFS::is_busy()
 #else
     uint8_t cmd = JEDEC_READ_STATUS;
     dev->transfer(&cmd, 1, &status, 1);
-    return status & (JEDEC_STATUS_BUSY | JEDEC_STATUS_SRP0) != 0;
+    return (status & (JEDEC_STATUS_BUSY | JEDEC_STATUS_SRP0)) != 0;
 #endif
 }
 
@@ -562,7 +563,7 @@ void AP_Filesystem_FlashMemory_LittleFS::write_status_register(uint8_t reg, uint
     dev->transfer(cmd, 3, nullptr, 0);
 }
 
-bool AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
+uint32_t AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
     if (!wait_until_device_is_ready()) {
         return false;
     }
@@ -644,7 +645,7 @@ bool AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
     default:
         hal.scheduler->delay(2000);
         printf("Unknown SPI Flash 0x%08x\n", id);
-        return false;
+        return 0;
     }
 
     fs_cfg.read_size = page_size;
@@ -661,7 +662,7 @@ bool AP_Filesystem_FlashMemory_LittleFS::find_block_size_and_count() {
     // handle that right now
     fs_cfg.cache_size = page_size;
 
-    return true;
+    return id;
 }
 
 bool AP_Filesystem_FlashMemory_LittleFS::mount_filesystem() {
@@ -672,6 +673,8 @@ bool AP_Filesystem_FlashMemory_LittleFS::mount_filesystem() {
     if (mounted) {
         return true;
     }
+
+    EXPECT_DELAY_MS(3000);
 
     fs_cfg.context = this;
 
@@ -688,7 +691,9 @@ bool AP_Filesystem_FlashMemory_LittleFS::mount_filesystem() {
 
     dev_sem = dev->get_semaphore();
 
-    if (!find_block_size_and_count()) {
+    uint32_t id = find_block_size_and_count();
+
+    if (!id) {
         mark_dead();
         return false;
     }
@@ -703,7 +708,13 @@ bool AP_Filesystem_FlashMemory_LittleFS::mount_filesystem() {
 
     if (lfs_mount(&fs, &fs_cfg) < 0) {
         /* maybe not formatted? try formatting it */
-        printf("FlashMemory_LittleFS: formatting filesystem\n");
+        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Formatting flash");
+#if AP_FILESYSTEM_LITTLEFS_FLASH_TYPE == AP_FILESYSTEM_FLASH_W25NXX
+        EXPECT_DELAY_MS(3000);
+#else
+        EXPECT_DELAY_MS(30000);
+#endif
+
         if (lfs_format(&fs, &fs_cfg) < 0) {
             /* cannot format either, give up */
             mark_dead();
@@ -725,9 +736,66 @@ bool AP_Filesystem_FlashMemory_LittleFS::mount_filesystem() {
         lfs_mkdir(&fs, HAL_BOARD_STORAGE_DIRECTORY);
     }
 #endif
-
+    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Mounted flash 0x%x as littlefs", unsigned(id));
     mounted = true;
     return true;
+}
+
+/*
+  format sdcard
+*/
+bool AP_Filesystem_FlashMemory_LittleFS::format(void)
+{
+    WITH_SEMAPHORE(fs_sem);
+    hal.scheduler->register_io_process(FUNCTOR_BIND_MEMBER(&AP_Filesystem_FlashMemory_LittleFS::format_handler, void));
+    // the format is handled asynchronously, we inform user of success
+    // via a text message.  format_status can be polled for progress
+    format_status = FormatStatus::PENDING;
+    return true;
+}
+
+/*
+  format sdcard
+*/
+void AP_Filesystem_FlashMemory_LittleFS::format_handler(void)
+{
+    if (format_status != FormatStatus::PENDING) {
+        return;
+    }
+    WITH_SEMAPHORE(fs_sem);
+    format_status = FormatStatus::IN_PROGRESS;
+    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Formatting flash using littlefs");
+
+    int ret = lfs_format(&fs, &fs_cfg);
+
+    /* try mounting */
+    if (ret == LFS_ERR_OK) {
+        ret = lfs_mount(&fs, &fs_cfg);
+    }
+
+#ifdef HAL_BOARD_STORAGE_DIRECTORY
+    // try to create the root storage folder. Ignore the error code in case
+    // the filesystem is corrupted or it already exists.
+    if (strlen(HAL_BOARD_STORAGE_DIRECTORY) > 0) {
+        lfs_mkdir(&fs, HAL_BOARD_STORAGE_DIRECTORY);
+    }
+#endif
+
+    if (ret == LFS_ERR_OK) {
+        format_status = FormatStatus::SUCCESS;
+        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Format flash: OK");
+    } else {
+        format_status = FormatStatus::FAILURE;
+        mark_dead();
+        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Format flash: Failed (%d)", int(ret));
+    }
+}
+
+// returns true if we are currently formatting the SD card:
+AP_Filesystem_Backend::FormatStatus AP_Filesystem_FlashMemory_LittleFS::get_format_status(void) const
+{
+    // note that format_handler holds sem, so we can't take it here.
+    return format_status;
 }
 
 uint32_t AP_Filesystem_FlashMemory_LittleFS::lfs_block_and_offset_to_raw_flash_address(lfs_block_t index, lfs_off_t off)
